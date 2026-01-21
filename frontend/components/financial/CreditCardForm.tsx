@@ -40,7 +40,6 @@ export function CreditCardForm({ creditCard, onSubmit, onCancel, onDelete, isLoa
     register,
     handleSubmit,
     control,
-    watch,
     setValue,
     formState: { errors },
   } = useForm<CreditCardFormData>({
@@ -65,10 +64,16 @@ export function CreditCardForm({ creditCard, onSubmit, onCancel, onDelete, isLoa
   // Inicializar o input formatado quando o formulário carregar
   useEffect(() => {
     if (creditCard) {
-      setLimitInput(formatCurrency(creditCard.limit_amount, 'BRL'))
+      const formatted = formatCurrency(creditCard.limit_amount, 'BRL')
+      // Usar setTimeout para evitar cascading renders
+      setTimeout(() => {
+        setLimitInput(formatted)
+      }, 0)
       setValue('limit_amount', creditCard.limit_amount / 100, { shouldValidate: false })
     } else {
-      setLimitInput('')
+      setTimeout(() => {
+        setLimitInput('')
+      }, 0)
       setValue('limit_amount', 0, { shouldValidate: false })
     }
   }, [creditCard, setValue])
