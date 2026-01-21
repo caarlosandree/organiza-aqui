@@ -44,6 +44,7 @@ import {
 import { TransactionForm } from '@/components/financial/TransactionForm'
 import { useTransactions } from '@/hooks/queries/useTransactions'
 import { useTransactionPeriods } from '@/hooks/queries/useTransactionPeriods'
+import { useNetWorth } from '@/hooks/queries/useAnalytics'
 import {
   useCreateTransaction,
   useUpdateTransaction,
@@ -341,7 +342,12 @@ const MonthAccordion = ({
 
     const bankIncome = bankTx.filter((t) => t.type === 'income').reduce((acc, t) => acc + t.amount, 0)
     const bankExpense = bankTx.filter((t) => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0)
-    const cardBill = cardTx.reduce((acc, t) => acc + t.amount, 0)
+    // Fatura do cartão: despesas menos pagamentos (income subtrai)
+    const cardBill = cardTx.reduce((acc, t) => {
+      if (t.type === 'expense') return acc + t.amount
+      if (t.type === 'income') return acc - t.amount
+      return acc
+    }, 0)
 
     return { bankIncome, bankExpense, cardBill, balance: bankIncome - bankExpense }
   }, [transactions, getTransactionPeriodType])
@@ -521,6 +527,7 @@ const MonthAccordion = ({
 
 export default function TransactionsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const { data: netWorthData } = useNetWorth()
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
 
   // Filtros na URL usando Nuqs
@@ -612,13 +619,19 @@ export default function TransactionsPage() {
         return acc
       }, 0)
 
-    // Dívida em cartões (transações em contas tipo credit)
-    const creditCardDebt = accountTxs
+    // Dívida em cartões: usar total de faturas abertas do backend (já calculado corretamente)
+    // Se não houver dados do backend, calcular localmente (despesas - pagamentos)
+    const creditCardDebt = netWorthData?.total_faturas ?? accountTxs
       .filter((t) => {
         const account = accounts.find((a) => a.id === t.account_id)
         return account?.type === 'credit'
       })
-      .reduce((acc, t) => acc + t.amount, 0)
+      .reduce((acc, t) => {
+        // Despesas somam, pagamentos (income) subtraem
+        if (t.type === 'expense') return acc + t.amount
+        if (t.type === 'income') return acc - t.amount
+        return acc
+      }, 0)
 
     // Receitas e despesas do período filtrado
     const filteredTxs = filters.reference_month
@@ -637,7 +650,7 @@ export default function TransactionsPage() {
       .reduce((acc, t) => acc + t.amount, 0)
 
     return { currentBalance, creditCardDebt, filteredIncome, filteredExpense }
-  }, [transactionsData, accounts, filters])
+  }, [transactionsData, accounts, filters, netWorthData])
 
   const isLoading =
     isLoadingAccounts || isLoadingCategories || isLoadingTransactions || isLoadingPeriods

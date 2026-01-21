@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -94,6 +95,8 @@ func (r *creditCardBillRepository) Delete(ctx context.Context, id uuid.UUID) err
 
 // CalculateBillTotal calcula o total da fatura somando transações vinculadas
 // Assumimos que transações na conta do cartão dentro do período da fatura são parte da fatura
+// Pagamentos (income) reduzem o total da fatura
+// O período da fatura vai do dia seguinte ao fechamento anterior até o fechamento atual
 func (r *creditCardBillRepository) CalculateBillTotal(ctx context.Context, billID uuid.UUID) (int64, error) {
 	// Buscar informações da fatura
 	var bill model.CreditCardBill
@@ -103,26 +106,47 @@ func (r *creditCardBillRepository) CalculateBillTotal(ctx context.Context, billI
 		return 0, err
 	}
 
-	// Buscar a conta do cartão
+	// Buscar a conta do cartão e o dia de fechamento
 	var accountID uuid.UUID
-	query2 := `SELECT account_id FROM credit_cards WHERE id = $1`
-	err = r.db.GetContext(ctx, &accountID, query2, bill.CreditCardID)
+	var closingDay int
+	query2 := `SELECT account_id, closing_day FROM credit_cards WHERE id = $1`
+	err = r.db.QueryRowContext(ctx, query2, bill.CreditCardID).Scan(&accountID, &closingDay)
 	if err != nil {
 		return 0, err
 	}
 
-	// Calcular total: soma de transações de despesa na conta do cartão
-	// dentro do período da fatura (até a data de fechamento)
+	// Calcular data de início do período: dia seguinte ao fechamento anterior
+	// Se a closing_date é 02/02/2026, o período começa em 03/01/2026
+	// (dia seguinte ao fechamento do mês anterior, que seria 02/01/2026)
+	// Calcular a data de fechamento do mês anterior
+	prevMonth := bill.ClosingDate.AddDate(0, -1, 0)
+	// Usar o mesmo dia de fechamento no mês anterior
+	// Se o mês anterior não tem esse dia (ex: 31 em fevereiro), usar o último dia do mês
+	prevMonthClosingDate := time.Date(prevMonth.Year(), prevMonth.Month(), closingDay, 0, 0, 0, 0, prevMonth.Location())
+	// Verificar se a data foi ajustada (mês anterior não tinha esse dia)
+	if prevMonthClosingDate.Month() != prevMonth.Month() {
+		// Usar o último dia do mês anterior
+		lastDayOfPrevMonth := time.Date(prevMonth.Year(), prevMonth.Month()+1, 0, 0, 0, 0, 0, prevMonth.Location())
+		prevMonthClosingDate = lastDayOfPrevMonth
+	}
+	
+	// Data de início: dia seguinte ao fechamento anterior
+	startDate := prevMonthClosingDate.AddDate(0, 0, 1)
+
+	// Calcular total: soma de despesas MENOS pagamentos (income) na conta do cartão
+	// dentro do período da fatura (do dia seguinte ao fechamento anterior até o fechamento atual)
+	// Pagamentos reduzem o total da fatura
 	var total int64
 	query3 := `
-		SELECT COALESCE(SUM(amount), 0)
+		SELECT 
+			COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) -
+			COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as total
 		FROM transactions
 		WHERE account_id = $1
-		  AND type = 'expense'
-		  AND date <= $2
-		  AND date >= DATE_TRUNC('month', $2::date)
+		  AND date >= $2
+		  AND date <= $3
 	`
-	err = r.db.GetContext(ctx, &total, query3, accountID, bill.ClosingDate)
+	err = r.db.GetContext(ctx, &total, query3, accountID, startDate, bill.ClosingDate)
 	return total, err
 }
 

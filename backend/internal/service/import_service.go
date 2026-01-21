@@ -94,6 +94,39 @@ func (s *importService) normalizeDescription(desc string) string {
 	return strings.Join(strings.Fields(normalized), " ")
 }
 
+// isBillPayment identifica se uma transação é um pagamento de fatura
+// baseado na descrição e tipo da transação
+func (s *importService) isBillPayment(description string, transactionType string) bool {
+	// Para cartões de crédito, pagamentos são do tipo CREDIT (income)
+	if transactionType != "CREDIT" {
+		return false
+	}
+
+	// Normalizar descrição para comparação
+	normalizedDesc := s.normalizeDescription(description)
+
+	// Padrões comuns de descrição de pagamento de fatura
+	paymentPatterns := []string{
+		"pagamento recebido",
+		"pagamento",
+		"pagto recebido",
+		"pagto",
+		"payment received",
+		"payment",
+		"pagamento da fatura",
+		"pagamento fatura",
+		"fatura paga",
+	}
+
+	for _, pattern := range paymentPatterns {
+		if strings.Contains(normalizedDesc, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // ImportOFX importa transações de um arquivo OFX
 func (s *importService) ImportOFX(ctx context.Context, userID uuid.UUID, req *dto.ImportOFXRequest) (*dto.ImportResponse, error) {
 	// Validar conta
