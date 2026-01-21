@@ -32,6 +32,7 @@ type importService struct {
 	db              *sqlx.DB
 	transactionRepo repository.TransactionRepository
 	accountRepo     repository.AccountRepository
+	creditCardRepo  repository.CreditCardRepository
 	periodService   TransactionPeriodService
 }
 
@@ -39,12 +40,14 @@ func NewImportService(
 	db *sqlx.DB,
 	transactionRepo repository.TransactionRepository,
 	accountRepo repository.AccountRepository,
+	creditCardRepo repository.CreditCardRepository,
 	periodService TransactionPeriodService,
 ) ImportService {
 	return &importService{
 		db:              db,
 		transactionRepo: transactionRepo,
 		accountRepo:     accountRepo,
+		creditCardRepo:  creditCardRepo,
 		periodService:   periodService,
 	}
 }
@@ -103,8 +106,15 @@ func (s *importService) ImportOFX(ctx context.Context, userID uuid.UUID, req *dt
 	ofxFileType := parser.GetFileType()
 
 	// Validar que o tipo da conta corresponde ao tipo do arquivo OFX
-	if ofxFileType == "credit_card" && account.Type != "credit" {
-		return nil, fmt.Errorf("arquivo OFX é de cartão de crédito, mas a conta selecionada não é do tipo 'credit'")
+	if ofxFileType == "credit_card" {
+		// Verificar se a conta é do tipo credit OU se está vinculada a um cartão de crédito
+		isCreditAccount := account.Type == "credit"
+		creditCards, err := s.creditCardRepo.FindByAccountID(ctx, accountID)
+		isLinkedToCreditCard := err == nil && len(creditCards) > 0
+
+		if !isCreditAccount && !isLinkedToCreditCard {
+			return nil, fmt.Errorf("arquivo OFX é de cartão de crédito, mas a conta selecionada não é do tipo 'credit' nem está vinculada a um cartão de crédito")
+		}
 	}
 	if ofxFileType == "bank" && account.Type == "credit" {
 		return nil, fmt.Errorf("arquivo OFX é de extrato bancário, mas a conta selecionada é do tipo 'credit'")
@@ -540,8 +550,15 @@ func (s *importService) PreviewOFX(ctx context.Context, userID uuid.UUID, req *d
 	ofxFileType := parser.GetFileType()
 
 	// Validar que o tipo da conta corresponde ao tipo do arquivo OFX
-	if ofxFileType == "credit_card" && account.Type != "credit" {
-		return nil, fmt.Errorf("arquivo OFX é de cartão de crédito, mas a conta selecionada não é do tipo 'credit'")
+	if ofxFileType == "credit_card" {
+		// Verificar se a conta é do tipo credit OU se está vinculada a um cartão de crédito
+		isCreditAccount := account.Type == "credit"
+		creditCards, err := s.creditCardRepo.FindByAccountID(ctx, accountID)
+		isLinkedToCreditCard := err == nil && len(creditCards) > 0
+
+		if !isCreditAccount && !isLinkedToCreditCard {
+			return nil, fmt.Errorf("arquivo OFX é de cartão de crédito, mas a conta selecionada não é do tipo 'credit' nem está vinculada a um cartão de crédito")
+		}
 	}
 	if ofxFileType == "bank" && account.Type == "credit" {
 		return nil, fmt.Errorf("arquivo OFX é de extrato bancário, mas a conta selecionada é do tipo 'credit'")

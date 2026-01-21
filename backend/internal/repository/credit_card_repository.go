@@ -13,6 +13,7 @@ type CreditCardRepository interface {
 	Create(ctx context.Context, creditCard *model.CreditCard) error
 	FindByID(ctx context.Context, id uuid.UUID) (*model.CreditCard, error)
 	FindByUserID(ctx context.Context, userID uuid.UUID) ([]*model.CreditCard, error)
+	FindByAccountID(ctx context.Context, accountID uuid.UUID) ([]*model.CreditCard, error)
 	Update(ctx context.Context, creditCard *model.CreditCard) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	CalculateUsedLimit(ctx context.Context, creditCardID uuid.UUID) (int64, error)
@@ -55,6 +56,14 @@ func (r *creditCardRepository) FindByUserID(ctx context.Context, userID uuid.UUI
 	query := `SELECT id, user_id, name, account_id, limit_amount, closing_day, due_day, color, created_at, updated_at 
 	          FROM credit_cards WHERE user_id = $1 ORDER BY created_at DESC`
 	err := r.db.SelectContext(ctx, &creditCards, query, userID)
+	return creditCards, err
+}
+
+func (r *creditCardRepository) FindByAccountID(ctx context.Context, accountID uuid.UUID) ([]*model.CreditCard, error) {
+	var creditCards []*model.CreditCard
+	query := `SELECT id, user_id, name, account_id, limit_amount, closing_day, due_day, color, created_at, updated_at 
+	          FROM credit_cards WHERE account_id = $1 ORDER BY created_at DESC`
+	err := r.db.SelectContext(ctx, &creditCards, query, accountID)
 	return creditCards, err
 }
 

@@ -52,7 +52,7 @@ export function ImportDialog({ open, onOpenChange, type }: ImportDialogProps) {
 
   // Filtrar contas baseado no contexto
   const availableAccounts = context === 'credit_card'
-    ? accounts?.filter(acc => creditCards?.some(cc => cc.account_id === acc.id))
+    ? accounts?.filter(acc => acc.type === 'credit' || creditCards?.some(cc => cc.account_id === acc.id))
     : accounts?.filter(acc => acc.type !== 'credit')
 
   // Quando o contexto muda, limpar conta selecionada
