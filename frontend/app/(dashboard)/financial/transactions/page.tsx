@@ -10,8 +10,6 @@ import {
   Landmark,
   ChevronDown,
   Calendar,
-  Wallet,
-  ArrowDownCircle,
   Trash2,
   Edit,
   Filter,
@@ -211,7 +209,10 @@ const TransactionTable = ({
                 {formatDateShort(t.date)}
               </TableCell>
               <TableCell>
-                <AccountBadge account={accounts.find((a) => a.id === t.account_id)!} />
+                {(() => {
+                  const account = accounts.find((a) => a.id === t.account_id)
+                  return account ? <AccountBadge account={account} /> : <span>N/A</span>
+                })()}
               </TableCell>
               <TableCell className="font-medium">{t.description || '-'}</TableCell>
               <TableCell>

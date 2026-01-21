@@ -13,7 +13,14 @@ export const useTaskStatuses = () => {
 export const useTaskStatus = (id: string | null) => {
   return useQuery<TaskStatus>({
     queryKey: ['task-statuses', id],
-    queryFn: () => getTaskStatuses().then((statuses) => statuses.find((s) => s.id === id)!),
+    queryFn: async () => {
+      const statuses = await getTaskStatuses()
+      const status = statuses.find((s) => s.id === id)
+      if (!status) {
+        throw new Error(`Task status with id ${id} not found`)
+      }
+      return status
+    },
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   })
