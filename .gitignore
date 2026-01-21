@@ -1,0 +1,69 @@
+# Arquivos de ambiente
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# IDEs e Editores
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+.cursor/
+
+# Sistema Operacional
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Arquivos temporários
+*.tmp
+*.temp
+*.bak
+*.cache
+
+# Arquivos de build e distribuição
+dist/
+build/
+out/
+*.zip
+*.tar.gz
+*.rar
+
+# Arquivos de configuração local
+config.local.*
+*.local.*
+
+# Arquivos de backup
+*.backup
+backup/
+backups/
+
+# Arquivos de teste e cobertura
+coverage/
+.nyc_output/
+*.lcov
+
+# Arquivos de documentação gerados
+docs/_build/
+site/
+
+# Arquivos de migração temporários
+*.migration.tmp

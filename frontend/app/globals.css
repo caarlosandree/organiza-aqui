@@ -1,0 +1,170 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "react-day-picker/style.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  /* Cores de estado da paleta Calma Moderna */
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+}
+
+:root {
+  /* Paleta Calma Moderna - Variáveis customizadas */
+  --calma-primary: #3FA7A0; /* Verde Azulado Suave */
+  --calma-secondary: #1F4E5F; /* Azul Profundo Calmante */
+  --calma-accent: #A8DADC; /* Verde Claro Orgânico */
+  --calma-background: #F4F6F5; /* Cinza Quente Claro */
+  --calma-muted: #8A8F8E; /* Cinza Médio Neutro */
+  --calma-success: #5FB3A2; /* Sucesso calmo */
+  --calma-warning: #E9C46A; /* Alerta suave */
+  --calma-error: #E76F51; /* Erro controlado */
+  --calma-primary-hover: #2E8F89; /* Hover do primário */
+  --calma-text-primary: #1F2933; /* Texto principal */
+
+  /* Cores do sistema - Mapeadas para a paleta Calma Moderna */
+  --background: oklch(0.965 0.003 160); /* #F4F6F5 */
+  --foreground: oklch(0.18 0.005 260); /* #1F2933 - Texto principal */
+  --card: oklch(1 0 0); /* #FFFFFF */
+  --card-foreground: oklch(0.18 0.005 260); /* #1F2933 */
+  --popover: oklch(1 0 0); /* #FFFFFF */
+  --popover-foreground: oklch(0.18 0.005 260); /* #1F2933 */
+  --primary: oklch(0.67 0.08 186); /* #3FA7A0 - Verde Azulado Suave */
+  --primary-foreground: oklch(0.985 0 0); /* Branco para contraste */
+  --secondary: oklch(0.35 0.06 225); /* #1F4E5F - Azul Profundo */
+  --secondary-foreground: oklch(0.985 0 0); /* Branco para contraste */
+  --muted: oklch(0.95 0.002 160); /* Versão clara do background */
+  --muted-foreground: oklch(0.55 0.003 160); /* #8A8F8E - Cinza Médio */
+  --accent: oklch(0.85 0.05 186); /* #A8DADC - Verde Claro Orgânico */
+  --accent-foreground: oklch(0.35 0.06 225); /* Azul Profundo para contraste */
+  --destructive: oklch(0.66 0.18 30); /* #E76F51 - Erro controlado */
+  --border: oklch(0.85 0.002 160); /* Bordas suaves */
+  --input: oklch(0.92 0.002 160); /* Inputs com fundo mais claro */
+  --ring: oklch(0.67 0.08 186); /* Ring usando cor primária */
+  --chart-1: oklch(0.67 0.08 186); /* Usando cor primária */
+  --chart-2: oklch(0.71 0.09 182); /* #5FB3A2 - Sucesso */
+  --chart-3: oklch(0.80 0.12 75); /* #E9C46A - Alerta */
+  --chart-4: oklch(0.85 0.05 186); /* #A8DADC - Accent */
+  --chart-5: oklch(0.35 0.06 225); /* Azul Profundo */
+  --radius: 0.625rem;
+  /* Sidebar usando cor secundária (#1F4E5F) */
+  --sidebar: oklch(0.35 0.06 225); /* #1F4E5F - Azul Profundo */
+  --sidebar-foreground: oklch(0.985 0 0); /* Branco */
+  --sidebar-primary: oklch(0.67 0.08 186); /* #3FA7A0 - Verde Azulado */
+  --sidebar-primary-foreground: oklch(0.985 0 0); /* Branco */
+  --sidebar-accent: oklch(0.40 0.07 210); /* Versão um pouco mais clara */
+  --sidebar-accent-foreground: oklch(0.985 0 0); /* Branco */
+  --sidebar-border: oklch(0.45 0.06 215); /* Bordas da sidebar */
+  --sidebar-ring: oklch(0.67 0.08 186); /* Ring usando cor primária */
+  
+  /* Cores de estado adicionais */
+  --success: oklch(0.71 0.09 182); /* #5FB3A2 - Sucesso calmo */
+  --warning: oklch(0.80 0.12 75); /* #E9C46A - Alerta suave */
+}
+
+.dark {
+  /* Dark mode ajustado para manter harmonia com a paleta Calma Moderna */
+  --background: oklch(0.18 0.005 260); /* Versão escura do texto principal */
+  --foreground: oklch(0.965 0.003 160); /* Versão clara para contraste */
+  --card: oklch(0.23 0.006 260); /* Cards um pouco mais claros */
+  --card-foreground: oklch(0.965 0.003 160);
+  --popover: oklch(0.23 0.006 260);
+  --popover-foreground: oklch(0.965 0.003 160);
+  /* Manter cores primárias e secundárias mais vibrantes no dark mode */
+  --primary: oklch(0.70 0.09 186); /* Versão um pouco mais clara do primário */
+  --primary-foreground: oklch(0.18 0.005 260); /* Texto escuro sobre primário claro */
+  --secondary: oklch(0.42 0.07 225); /* Versão mais clara do secundário */
+  --secondary-foreground: oklch(0.965 0.003 160);
+  --muted: oklch(0.25 0.005 260); /* Versão escura do muted */
+  --muted-foreground: oklch(0.65 0.003 160); /* Texto secundário mais claro */
+  --accent: oklch(0.75 0.06 186); /* Accent mais claro */
+  --accent-foreground: oklch(0.18 0.005 260);
+  --destructive: oklch(0.70 0.19 30); /* Erro um pouco mais claro */
+  --border: oklch(0.30 0.005 260); /* Bordas mais visíveis */
+  --input: oklch(0.25 0.005 260); /* Inputs com fundo */
+  --ring: oklch(0.70 0.09 186); /* Ring usando primário */
+  --chart-1: oklch(0.70 0.09 186);
+  --chart-2: oklch(0.74 0.10 182); /* Sucesso */
+  --chart-3: oklch(0.82 0.13 75); /* Alerta */
+  --chart-4: oklch(0.75 0.06 186); /* Accent */
+  --chart-5: oklch(0.42 0.07 225); /* Secundário */
+  /* Sidebar no dark mode */
+  --sidebar: oklch(0.22 0.006 260); /* Sidebar um pouco mais clara */
+  --sidebar-foreground: oklch(0.965 0.003 160);
+  --sidebar-primary: oklch(0.70 0.09 186); /* Primário mais vibrante */
+  --sidebar-primary-foreground: oklch(0.18 0.005 260);
+  --sidebar-accent: oklch(0.28 0.006 260);
+  --sidebar-accent-foreground: oklch(0.965 0.003 160);
+  --sidebar-border: oklch(0.32 0.005 260);
+  --sidebar-ring: oklch(0.70 0.09 186);
+  
+  /* Cores de estado no dark mode */
+  --success: oklch(0.74 0.10 182);
+  --warning: oklch(0.82 0.13 75);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  
+  /* Custom scrollbar for aesthetics */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #F4F6F5;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #3FA7A0;
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2E8F89;
+  }
+}

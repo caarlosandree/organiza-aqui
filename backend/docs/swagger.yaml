@@ -1,0 +1,1720 @@
+basePath: /api/v1
+definitions:
+  dto.AccountDTO:
+    properties:
+      balance:
+        description: em centavos
+        type: integer
+      created_at:
+        type: string
+      currency:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      type:
+        type: string
+      user_id:
+        type: string
+    type: object
+  dto.CategoryBreakdownDTO:
+    properties:
+      category_id:
+        type: string
+      category_name:
+        type: string
+      percentage:
+        type: number
+      total_amount:
+        description: em centavos
+        type: integer
+      transaction_count:
+        type: integer
+    type: object
+  dto.CategoryDTO:
+    properties:
+      children:
+        description: para hierarquia
+        items:
+          $ref: '#/definitions/dto.CategoryDTO'
+        type: array
+      color:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      parent_id:
+        type: string
+      path:
+        type: string
+      type:
+        type: string
+      user_id:
+        type: string
+    type: object
+  dto.CreateAccountRequest:
+    properties:
+      currency:
+        type: string
+      name:
+        maxLength: 255
+        minLength: 1
+        type: string
+      type:
+        enum:
+        - checking
+        - savings
+        - credit
+        - investment
+        type: string
+    required:
+    - currency
+    - name
+    - type
+    type: object
+  dto.CreateCategoryRequest:
+    properties:
+      color:
+        type: string
+      name:
+        maxLength: 255
+        minLength: 1
+        type: string
+      parent_id:
+        type: string
+      type:
+        enum:
+        - income
+        - expense
+        type: string
+    required:
+    - color
+    - name
+    - type
+    type: object
+  dto.CreateRecurrencePatternRequest:
+    properties:
+      end_date:
+        type: string
+      frequency:
+        enum:
+        - daily
+        - weekly
+        - monthly
+        - yearly
+        type: string
+      interval:
+        minimum: 1
+        type: integer
+      transaction_id:
+        type: string
+    required:
+    - frequency
+    - interval
+    - transaction_id
+    type: object
+  dto.CreateTaskRequest:
+    properties:
+      description:
+        maxLength: 5000
+        type: string
+      due_date:
+        type: string
+      priority:
+        enum:
+        - low
+        - medium
+        - high
+        - urgent
+        type: string
+      status_id:
+        type: string
+      title:
+        maxLength: 255
+        minLength: 1
+        type: string
+    required:
+    - priority
+    - status_id
+    - title
+    type: object
+  dto.CreateTaskStatusRequest:
+    properties:
+      color:
+        type: string
+      is_default:
+        type: boolean
+      name:
+        maxLength: 255
+        minLength: 1
+        type: string
+      order_index:
+        minimum: 0
+        type: integer
+    required:
+    - color
+    - name
+    type: object
+  dto.CreateTransactionRequest:
+    properties:
+      account_id:
+        type: string
+      amount:
+        type: integer
+      category_id:
+        type: string
+      date:
+        type: string
+      description:
+        maxLength: 1000
+        type: string
+      type:
+        enum:
+        - income
+        - expense
+        - transfer
+        type: string
+    required:
+    - account_id
+    - amount
+    - date
+    - type
+    type: object
+  dto.ErrorResponse:
+    properties:
+      error:
+        type: string
+      message:
+        type: string
+    type: object
+  dto.GenerateRecurrenceRequest:
+    properties:
+      until_date:
+        description: Gerar transações até esta data
+        type: string
+    required:
+    - until_date
+    type: object
+  dto.IncomeExpenseByPeriodResponse:
+    properties:
+      balance:
+        description: em centavos
+        type: integer
+      end_date:
+        type: string
+      start_date:
+        type: string
+      total_expense:
+        description: em centavos
+        type: integer
+      total_income:
+        description: em centavos
+        type: integer
+    type: object
+  dto.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  dto.LoginResponse:
+    properties:
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/dto.UserDTO'
+    type: object
+  dto.MonthlyTrendDTO:
+    properties:
+      expense:
+        description: em centavos
+        type: integer
+      income:
+        description: em centavos
+        type: integer
+      month:
+        description: 'formato: "2006-01"'
+        type: string
+    type: object
+  dto.RecurrencePatternDTO:
+    properties:
+      created_at:
+        type: string
+      end_date:
+        type: string
+      frequency:
+        type: string
+      id:
+        type: string
+      interval:
+        type: integer
+      last_generated_date:
+        type: string
+      transaction_id:
+        type: string
+      user_id:
+        type: string
+    type: object
+  dto.RegisterRequest:
+    properties:
+      email:
+        type: string
+      name:
+        maxLength: 255
+        minLength: 3
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  dto.ReorderTasksRequest:
+    properties:
+      after_id:
+        description: ID da tarefa após a qual inserir (null = início)
+        type: string
+      status_id:
+        type: string
+      task_id:
+        type: string
+    required:
+    - status_id
+    - task_id
+    type: object
+  dto.StatementResponse:
+    properties:
+      account_id:
+        type: string
+      account_name:
+        type: string
+      end_date:
+        type: string
+      final_balance:
+        description: em centavos
+        type: integer
+      initial_balance:
+        description: em centavos
+        type: integer
+      start_date:
+        type: string
+      summary:
+        $ref: '#/definitions/dto.StatementSummaryDTO'
+      total_expense:
+        description: em centavos
+        type: integer
+      total_income:
+        description: em centavos
+        type: integer
+      transactions:
+        items:
+          $ref: '#/definitions/dto.TransactionDTO'
+        type: array
+    type: object
+  dto.StatementSummaryDTO:
+    properties:
+      average_expense:
+        description: em centavos
+        type: integer
+      average_income:
+        description: em centavos
+        type: integer
+      expense_count:
+        type: integer
+      income_count:
+        type: integer
+      transaction_count:
+        type: integer
+    type: object
+  dto.TaskDTO:
+    properties:
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      due_date:
+        type: string
+      id:
+        type: string
+      lexorank:
+        type: string
+      priority:
+        type: string
+      status_id:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  dto.TaskStatusDTO:
+    properties:
+      color:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      is_default:
+        type: boolean
+      name:
+        type: string
+      order_index:
+        type: integer
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  dto.TransactionDTO:
+    properties:
+      account_id:
+        type: string
+      amount:
+        description: em centavos
+        type: integer
+      category_id:
+        type: string
+      created_at:
+        type: string
+      date:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      type:
+        type: string
+      user_id:
+        type: string
+    type: object
+  dto.UpdateAccountRequest:
+    properties:
+      currency:
+        type: string
+      name:
+        maxLength: 255
+        minLength: 1
+        type: string
+      type:
+        enum:
+        - checking
+        - savings
+        - credit
+        - investment
+        type: string
+    required:
+    - currency
+    - name
+    - type
+    type: object
+  dto.UpdateCategoryRequest:
+    properties:
+      color:
+        type: string
+      name:
+        maxLength: 255
+        minLength: 1
+        type: string
+      parent_id:
+        type: string
+      type:
+        enum:
+        - income
+        - expense
+        type: string
+    required:
+    - color
+    - name
+    - type
+    type: object
+  dto.UpdateRecurrencePatternRequest:
+    properties:
+      end_date:
+        type: string
+      frequency:
+        enum:
+        - daily
+        - weekly
+        - monthly
+        - yearly
+        type: string
+      interval:
+        minimum: 1
+        type: integer
+    required:
+    - frequency
+    - interval
+    type: object
+  dto.UpdateTaskRequest:
+    properties:
+      description:
+        maxLength: 5000
+        type: string
+      due_date:
+        type: string
+      priority:
+        enum:
+        - low
+        - medium
+        - high
+        - urgent
+        type: string
+      status_id:
+        type: string
+      title:
+        maxLength: 255
+        minLength: 1
+        type: string
+    required:
+    - priority
+    - status_id
+    - title
+    type: object
+  dto.UpdateTaskStatusRequest:
+    properties:
+      color:
+        type: string
+      is_default:
+        type: boolean
+      name:
+        maxLength: 255
+        minLength: 1
+        type: string
+      order_index:
+        minimum: 0
+        type: integer
+    required:
+    - color
+    - name
+    type: object
+  dto.UpdateTransactionRequest:
+    properties:
+      account_id:
+        type: string
+      amount:
+        type: integer
+      category_id:
+        type: string
+      date:
+        type: string
+      description:
+        maxLength: 1000
+        type: string
+      type:
+        enum:
+        - income
+        - expense
+        - transfer
+        type: string
+    required:
+    - account_id
+    - amount
+    - date
+    - type
+    type: object
+  dto.UserDTO:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: API do sistema Organiza Aqui
+  title: Organiza Aqui API
+  version: "1.0"
+paths:
+  /api/v1/accounts:
+    get:
+      description: Retorna todas as contas do usuário autenticado
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.AccountDTO'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Listar contas
+      tags:
+      - accounts
+    post:
+      consumes:
+      - application/json
+      description: Cria uma nova conta financeira
+      parameters:
+      - description: Dados da conta
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateAccountRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.AccountDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Criar conta
+      tags:
+      - accounts
+  /api/v1/accounts/{id}:
+    delete:
+      description: Remove uma conta do sistema
+      parameters:
+      - description: ID da conta
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Deletar conta
+      tags:
+      - accounts
+    get:
+      description: Retorna uma conta específica
+      parameters:
+      - description: ID da conta
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.AccountDTO'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Obter conta
+      tags:
+      - accounts
+    put:
+      consumes:
+      - application/json
+      description: Atualiza os dados de uma conta
+      parameters:
+      - description: ID da conta
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Dados atualizados da conta
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateAccountRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.AccountDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Atualizar conta
+      tags:
+      - accounts
+  /api/v1/analytics/category-breakdown:
+    get:
+      description: Retorna o total gasto/recebido por categoria
+      parameters:
+      - description: Data inicial (YYYY-MM-DD)
+        in: query
+        name: start_date
+        required: true
+        type: string
+      - description: Data final (YYYY-MM-DD)
+        in: query
+        name: end_date
+        required: true
+        type: string
+      - description: Tipo (income ou expense)
+        in: query
+        name: type
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.CategoryBreakdownDTO'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Breakdown por Categoria
+      tags:
+      - analytics
+  /api/v1/analytics/income-expense:
+    get:
+      description: Retorna o total de receitas e despesas em um período
+      parameters:
+      - description: Data inicial (YYYY-MM-DD)
+        in: query
+        name: start_date
+        required: true
+        type: string
+      - description: Data final (YYYY-MM-DD)
+        in: query
+        name: end_date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.IncomeExpenseByPeriodResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Receitas e Despesas por Período
+      tags:
+      - analytics
+  /api/v1/analytics/monthly-trend:
+    get:
+      description: Retorna receitas e despesas por mês
+      parameters:
+      - description: 'Número de meses (padrão: 6)'
+        in: query
+        name: months
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.MonthlyTrendDTO'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Tendência Mensal
+      tags:
+      - analytics
+  /api/v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Autentica um usuário e retorna um token JWT
+      parameters:
+      - description: Credenciais de login
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Login
+      tags:
+      - auth
+  /api/v1/auth/logout:
+    post:
+      description: Encerra a sessão do usuário
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout
+      tags:
+      - auth
+  /api/v1/auth/me:
+    get:
+      description: Retorna informações do usuário autenticado
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.UserDTO'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Obter usuário autenticado
+      tags:
+      - auth
+  /api/v1/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Cria uma nova conta de usuário
+      parameters:
+      - description: Dados de registro
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Registrar novo usuário
+      tags:
+      - auth
+  /api/v1/categories:
+    get:
+      description: Retorna todas as categorias do usuário autenticado
+      parameters:
+      - description: Filtrar por tipo (income, expense)
+        in: query
+        name: type
+        type: string
+      - description: Retornar como árvore hierárquica
+        in: query
+        name: tree
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.CategoryDTO'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Listar categorias
+      tags:
+      - categories
+    post:
+      consumes:
+      - application/json
+      description: Cria uma nova categoria financeira
+      parameters:
+      - description: Dados da categoria
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.CategoryDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Criar categoria
+      tags:
+      - categories
+  /api/v1/categories/{id}:
+    delete:
+      description: Remove uma categoria do sistema
+      parameters:
+      - description: ID da categoria
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Deletar categoria
+      tags:
+      - categories
+    get:
+      description: Retorna uma categoria específica
+      parameters:
+      - description: ID da categoria
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.CategoryDTO'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Obter categoria
+      tags:
+      - categories
+    put:
+      consumes:
+      - application/json
+      description: Atualiza os dados de uma categoria
+      parameters:
+      - description: ID da categoria
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Dados atualizados da categoria
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.CategoryDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Atualizar categoria
+      tags:
+      - categories
+  /api/v1/recurrence:
+    get:
+      description: Retorna todos os padrões de recorrência do usuário
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.RecurrencePatternDTO'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Listar padrões de recorrência
+      tags:
+      - recurrence
+    post:
+      consumes:
+      - application/json
+      description: Cria um padrão de recorrência para uma transação
+      parameters:
+      - description: Dados do padrão
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateRecurrencePatternRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.RecurrencePatternDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Criar padrão de recorrência
+      tags:
+      - recurrence
+  /api/v1/recurrence/{id}:
+    delete:
+      description: Remove um padrão de recorrência
+      parameters:
+      - description: ID do padrão
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Deletar padrão de recorrência
+      tags:
+      - recurrence
+    get:
+      description: Retorna um padrão de recorrência específico
+      parameters:
+      - description: ID do padrão
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.RecurrencePatternDTO'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Obter padrão de recorrência
+      tags:
+      - recurrence
+    put:
+      consumes:
+      - application/json
+      description: Atualiza os dados de um padrão de recorrência
+      parameters:
+      - description: ID do padrão
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Dados atualizados
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateRecurrencePatternRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.RecurrencePatternDTO'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Atualizar padrão de recorrência
+      tags:
+      - recurrence
+  /api/v1/recurrence/generate:
+    post:
+      consumes:
+      - application/json
+      description: Gera transações baseadas nos padrões de recorrência até uma data
+      parameters:
+      - description: Data limite
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GenerateRecurrenceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Gerar transações recorrentes
+      tags:
+      - recurrence
+  /api/v1/task-statuses:
+    get:
+      description: Retorna todos os status de tarefas do usuário
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.TaskStatusDTO'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Listar status de tarefas
+      tags:
+      - task-statuses
+    post:
+      consumes:
+      - application/json
+      description: Cria um novo status de tarefa
+      parameters:
+      - description: Dados do status
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateTaskStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.TaskStatusDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Criar status de tarefa
+      tags:
+      - task-statuses
+  /api/v1/task-statuses/{id}:
+    delete:
+      description: Remove um status de tarefa
+      parameters:
+      - description: ID do status
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Deletar status de tarefa
+      tags:
+      - task-statuses
+    get:
+      description: Retorna um status de tarefa específico
+      parameters:
+      - description: ID do status
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TaskStatusDTO'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Obter status de tarefa
+      tags:
+      - task-statuses
+    put:
+      consumes:
+      - application/json
+      description: Atualiza os dados de um status de tarefa
+      parameters:
+      - description: ID do status
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Dados atualizados
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateTaskStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TaskStatusDTO'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Atualizar status de tarefa
+      tags:
+      - task-statuses
+  /api/v1/task-statuses/reorder:
+    post:
+      consumes:
+      - application/json
+      description: Reordena os status de tarefas do usuário
+      parameters:
+      - description: Array de IDs de status na ordem desejada
+        in: body
+        name: request
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Reordenar status de tarefas
+      tags:
+      - task-statuses
+  /api/v1/tasks:
+    get:
+      description: Retorna todas as tarefas do usuário com filtros opcionais
+      parameters:
+      - description: Filtrar por status
+        in: query
+        name: status_id
+        type: string
+      - description: Filtrar por prioridade
+        in: query
+        name: priority
+        type: string
+      - description: Filtrar por completado
+        in: query
+        name: completed
+        type: boolean
+      - description: Limite de resultados
+        in: query
+        name: limit
+        type: integer
+      - description: Offset para paginação
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.TaskDTO'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Listar tarefas
+      tags:
+      - tasks
+    post:
+      consumes:
+      - application/json
+      description: Cria uma nova tarefa
+      parameters:
+      - description: Dados da tarefa
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.TaskDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Criar tarefa
+      tags:
+      - tasks
+  /api/v1/tasks/{id}:
+    delete:
+      description: Remove uma tarefa
+      parameters:
+      - description: ID da tarefa
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Deletar tarefa
+      tags:
+      - tasks
+    get:
+      description: Retorna uma tarefa específica
+      parameters:
+      - description: ID da tarefa
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TaskDTO'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Obter tarefa
+      tags:
+      - tasks
+    put:
+      consumes:
+      - application/json
+      description: Atualiza os dados de uma tarefa
+      parameters:
+      - description: ID da tarefa
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Dados atualizados
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TaskDTO'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Atualizar tarefa
+      tags:
+      - tasks
+  /api/v1/tasks/{id}/complete:
+    post:
+      description: Marca uma tarefa como completa
+      parameters:
+      - description: ID da tarefa
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TaskDTO'
+      security:
+      - BearerAuth: []
+      summary: Completar tarefa
+      tags:
+      - tasks
+  /api/v1/tasks/{id}/uncomplete:
+    post:
+      description: Marca uma tarefa como incompleta
+      parameters:
+      - description: ID da tarefa
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TaskDTO'
+      security:
+      - BearerAuth: []
+      summary: Descompletar tarefa
+      tags:
+      - tasks
+  /api/v1/tasks/reorder:
+    post:
+      consumes:
+      - application/json
+      description: Reordena uma tarefa usando drag-and-drop
+      parameters:
+      - description: Dados de reordenação
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ReorderTasksRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TaskDTO'
+      security:
+      - BearerAuth: []
+      summary: Reordenar tarefa
+      tags:
+      - tasks
+  /api/v1/transactions:
+    get:
+      description: Retorna transações do usuário autenticado com filtros opcionais
+      parameters:
+      - description: Filtrar por conta
+        in: query
+        name: account_id
+        type: string
+      - description: Filtrar por categoria
+        in: query
+        name: category_id
+        type: string
+      - description: Filtrar por tipo (income, expense, transfer)
+        in: query
+        name: type
+        type: string
+      - description: Data inicial (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: Data final (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      - description: Limite de resultados
+        in: query
+        name: limit
+        type: integer
+      - description: Offset para paginação
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Listar transações
+      tags:
+      - transactions
+    post:
+      consumes:
+      - application/json
+      description: Cria uma nova transação financeira
+      parameters:
+      - description: Dados da transação
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateTransactionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.TransactionDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Criar transação
+      tags:
+      - transactions
+  /api/v1/transactions/{id}:
+    delete:
+      description: Remove uma transação do sistema
+      parameters:
+      - description: ID da transação
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Deletar transação
+      tags:
+      - transactions
+    get:
+      description: Retorna uma transação específica
+      parameters:
+      - description: ID da transação
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TransactionDTO'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Obter transação
+      tags:
+      - transactions
+    put:
+      consumes:
+      - application/json
+      description: Atualiza os dados de uma transação
+      parameters:
+      - description: ID da transação
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Dados atualizados da transação
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateTransactionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TransactionDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Atualizar transação
+      tags:
+      - transactions
+  /api/v1/transactions/statement:
+    get:
+      description: Retorna o extrato de uma conta para um período específico
+      parameters:
+      - description: ID da conta
+        in: query
+        name: account_id
+        required: true
+        type: string
+      - description: Data inicial (YYYY-MM-DD)
+        in: query
+        name: start_date
+        required: true
+        type: string
+      - description: Data final (YYYY-MM-DD)
+        in: query
+        name: end_date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.StatementResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Obter extrato
+      tags:
+      - transactions
+swagger: "2.0"
