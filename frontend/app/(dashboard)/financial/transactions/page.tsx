@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { useQueryStates, parseAsString, parseAsInteger } from 'nuqs'
+import { useQueryStates, parseAsString } from 'nuqs'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
@@ -26,8 +26,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Table,
@@ -37,7 +35,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Collapsible,
@@ -61,7 +58,6 @@ import type {
   TransactionFilters,
   TransactionPeriodFilters,
   Transaction,
-  PeriodWithTransactions,
   Account,
   Category,
 } from '@/types/financial'
@@ -173,10 +169,6 @@ const TransactionTable = ({
         {emptyMessage}
       </div>
     )
-  }
-
-  const getAccountName = (accountId: string) => {
-    return accounts.find((a) => a.id === accountId)?.name || 'Conta'
   }
 
   const getCategoryName = (categoryId?: string) => {
@@ -501,8 +493,7 @@ export default function TransactionsPage() {
 
   const { data: transactionsData, isLoading: isLoadingTransactions } =
     useTransactions(transactionFilters)
-  const { data: periods, isLoading: isLoadingPeriods } =
-    useTransactionPeriods(periodFilters)
+  const { isLoading: isLoadingPeriods } = useTransactionPeriods(periodFilters)
 
   // Mutations
   const createMutation = useCreateTransaction()

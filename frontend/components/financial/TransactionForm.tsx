@@ -6,7 +6,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import {
   Select,
@@ -81,9 +80,7 @@ export function TransactionForm({
   })
 
   const transactionType = watch('type')
-  const watchAccountId = watch('account_id')
   const watchTotalInstallments = watch('total_installments')
-  const watchDate = watch('date')
 
   // Quando o contexto muda, ajustar o tipo e limpar conta selecionada
   const handleContextChange = (newContext: 'bank' | 'credit_card') => {

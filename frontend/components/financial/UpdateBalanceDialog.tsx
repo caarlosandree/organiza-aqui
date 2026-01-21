@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
@@ -37,8 +37,14 @@ interface UpdateBalanceDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-export function UpdateBalanceDialog({ account, open, onOpenChange }: UpdateBalanceDialogProps) {
-  const [balanceInput, setBalanceInput] = useState('')
+function UpdateBalanceDialogContent({ account, onOpenChange }: Omit<UpdateBalanceDialogProps, 'open'>) {
+  // Calcular valor inicial formatado
+  const initialFormattedBalance = useMemo(
+    () => formatCurrency(account.balance / 100, account.currency),
+    [account.balance, account.currency]
+  )
+
+  const [balanceInput, setBalanceInput] = useState(initialFormattedBalance)
   const [datePickerOpen, setDatePickerOpen] = useState(false)
   const updateMutation = useUpdateInitialBalance()
 
@@ -47,31 +53,15 @@ export function UpdateBalanceDialog({ account, open, onOpenChange }: UpdateBalan
     handleSubmit,
     control,
     formState: { errors },
-    reset,
-    watch,
     setValue,
+    getValues,
   } = useForm<UpdateInitialBalanceFormData>({
     resolver: zodResolver(updateInitialBalanceSchema),
     defaultValues: {
-      balance: 0,
+      balance: account.balance,
       date: new Date().toISOString().split('T')[0],
     },
   })
-
-  const selectedDate = watch('date')
-
-  // Reset form when dialog opens/closes
-  useEffect(() => {
-    if (open) {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      reset({
-        balance: account.balance,
-        date: today.toISOString().split('T')[0],
-      })
-      setBalanceInput(formatCurrency(account.balance / 100, account.currency))
-    }
-  }, [open, account, reset])
 
   const handleBalanceChange = (value: string) => {
     // Remove tudo que não é número (mantém apenas dígitos)
@@ -123,14 +113,9 @@ export function UpdateBalanceDialog({ account, open, onOpenChange }: UpdateBalan
 
   const today = new Date()
   today.setHours(23, 59, 59, 999)
-  const maxDate = today.toISOString().split('T')[0]
-
-  // Converter string de data para Date object
-  const selectedDateObj = selectedDate ? new Date(selectedDate + 'T00:00:00') : undefined
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+    <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Atualizar Saldo Inicial</DialogTitle>
           <DialogDescription>
@@ -215,7 +200,7 @@ export function UpdateBalanceDialog({ account, open, onOpenChange }: UpdateBalan
             </p>
           </Field>
 
-          {selectedDate && (
+          {getValues('date') && (
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
@@ -248,6 +233,13 @@ export function UpdateBalanceDialog({ account, open, onOpenChange }: UpdateBalan
           </div>
         </form>
       </DialogContent>
+  )
+}
+
+export function UpdateBalanceDialog({ account, open, onOpenChange }: UpdateBalanceDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <UpdateBalanceDialogContent key={`${account.id}-${open}`} account={account} onOpenChange={onOpenChange} />
     </Dialog>
   )
 }
