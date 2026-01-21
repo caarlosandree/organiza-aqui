@@ -246,8 +246,9 @@ type UpdateInstallmentRequest struct {
 
 // ImportOFXRequest representa a requisição de importação OFX
 type ImportOFXRequest struct {
-	AccountID string `json:"account_id" validate:"required,uuid"`
-	File      []byte `json:"file" validate:"required"`
+	AccountID     string   `json:"account_id" validate:"required,uuid"`
+	File          []byte   `json:"file" validate:"required"`
+	ExternalIDs   []string `json:"external_ids,omitempty"` // Lista de external_ids para importar apenas transações específicas (opcional)
 }
 
 // ImportCSVRequest representa a requisição de importação CSV
@@ -259,10 +260,18 @@ type ImportCSVRequest struct {
 
 // ImportPreviewResponse representa o preview da importação
 type ImportPreviewResponse struct {
-	TotalTransactions int      `json:"total_transactions"`
-	Duplicates        int      `json:"duplicates"`
-	NewTransactions   int      `json:"new_transactions"`
-	Transactions      []*TransactionDTO `json:"transactions"`
+	FileHash          string                `json:"file_hash"`           // Hash MD5 do arquivo para identificar se já foi importado
+	TotalTransactions int                   `json:"total_transactions"`
+	Duplicates        int                   `json:"duplicates"`
+	NewTransactions   int                   `json:"new_transactions"`
+	Transactions      []*TransactionPreviewDTO `json:"transactions"`
+}
+
+// TransactionPreviewDTO representa uma transação no preview com status
+type TransactionPreviewDTO struct {
+	TransactionDTO
+	ExternalID string `json:"external_id"` // ID externo para identificação única
+	Status     string `json:"status"`      // "new" ou "existing"
 }
 
 // ImportResponse representa a resposta da importação

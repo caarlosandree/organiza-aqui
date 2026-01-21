@@ -197,11 +197,17 @@ export interface ImportCSVRequest {
   delimiter?: string
 }
 
+export interface TransactionPreview extends Transaction {
+  external_id: string // ID externo para identificação única
+  status: 'new' | 'existing' // Status da transação no preview
+}
+
 export interface ImportPreviewResponse {
+  file_hash: string // Hash MD5 do arquivo para identificar se já foi importado
   total_transactions: number
   duplicates: number
   new_transactions: number
-  transactions: Transaction[]
+  transactions: TransactionPreview[]
 }
 
 export interface ImportResponse {

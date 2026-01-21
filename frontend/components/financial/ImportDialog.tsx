@@ -149,14 +149,14 @@ export function ImportDialog({ open, onOpenChange, type }: ImportDialogProps) {
     onOpenChange(open)
   }
 
-  const handleImport = async () => {
+  const handleImport = async (externalIds: string[]) => {
     if (!selectedFile || !selectedAccount) return
 
     try {
       if (type === 'csv') {
         await importCSVMutation.mutateAsync({ accountId: selectedAccount, file: selectedFile })
       } else {
-        await importOFXMutation.mutateAsync({ accountId: selectedAccount, file: selectedFile })
+        await importOFXMutation.mutateAsync({ accountId: selectedAccount, file: selectedFile, externalIds })
       }
       onOpenChange(false)
       setSelectedFile(null)

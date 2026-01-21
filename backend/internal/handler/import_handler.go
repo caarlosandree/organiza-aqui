@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
@@ -26,13 +27,14 @@ func NewImportHandler(importService service.ImportService) *ImportHandler {
 
 // ImportOFX importa transações de um arquivo OFX
 // @Summary Importar OFX
-// @Description Importa transações de um arquivo OFX
+// @Description Importa transações de um arquivo OFX. Se external_ids for fornecido, importa apenas as transações especificadas.
 // @Tags import
 // @Accept multipart/form-data
 // @Produce json
 // @Security BearerAuth
 // @Param account_id formData string true "ID da conta"
 // @Param file formData file true "Arquivo OFX"
+// @Param external_ids formData string false "Lista de external_ids para importar apenas transações específicas (JSON array)"
 // @Success 200 {object} dto.ImportResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
@@ -67,6 +69,17 @@ func (h *ImportHandler) ImportOFX(c echo.Context) error {
 	req := &dto.ImportOFXRequest{
 		AccountID: accountID,
 		File:       fileBytes,
+	}
+
+	// Tentar obter external_ids do form-data (opcional)
+	externalIDsStr := c.FormValue("external_ids")
+	if externalIDsStr != "" {
+		var externalIDs []string
+		if err := json.Unmarshal([]byte(externalIDsStr), &externalIDs); err != nil {
+			// Se não for JSON válido, tentar como string única
+			externalIDs = []string{externalIDsStr}
+		}
+		req.ExternalIDs = externalIDs
 	}
 
 	result, err := h.importService.ImportOFX(c.Request().Context(), userID, req)

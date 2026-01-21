@@ -5,8 +5,8 @@ export function useImportOFX() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ accountId, file }: { accountId: string; file: File }) =>
-      financialService.importOFX(accountId, file),
+    mutationFn: ({ accountId, file, externalIds }: { accountId: string; file: File; externalIds?: string[] }) =>
+      financialService.importOFX(accountId, file, externalIds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       queryClient.invalidateQueries({ queryKey: ['accounts'] }) // Atualiza saldo

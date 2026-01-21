@@ -189,10 +189,13 @@ export const financialService = {
   },
 
   // Import
-  importOFX: async (accountId: string, file: File): Promise<ImportResponse> => {
+  importOFX: async (accountId: string, file: File, externalIds?: string[]): Promise<ImportResponse> => {
     const formData = new FormData()
     formData.append('account_id', accountId)
     formData.append('file', file)
+    if (externalIds && externalIds.length > 0) {
+      formData.append('external_ids', JSON.stringify(externalIds))
+    }
     const response = await api.post<ImportResponse>('/import/ofx', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',

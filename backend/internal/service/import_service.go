@@ -66,6 +66,28 @@ func (s *importService) generateExternalID(date time.Time, amount int64, descrip
 	return hex.EncodeToString(hash[:])
 }
 
+// generateOFXExternalID gera um external_id único para transações OFX
+// Combina FITID com valor, data e descrição para garantir unicidade mesmo quando
+// o FITID é duplicado (caso comum em transações relacionadas como IOF + compra)
+func (s *importService) generateOFXExternalID(fitid string, date time.Time, amount int64, description string) string {
+	// Normalizar descrição: remover espaços extras, converter para minúsculas
+	normalizedDesc := strings.ToLower(strings.TrimSpace(description))
+	normalizedDesc = strings.Join(strings.Fields(normalizedDesc), " ")
+
+	// Criar string única: FITID + data + valor + descrição normalizada
+	data := fmt.Sprintf("%s|%s|%d|%s", fitid, date.Format("2006-01-02"), amount, normalizedDesc)
+
+	// Gerar hash MD5
+	hash := md5.Sum([]byte(data))
+	return hex.EncodeToString(hash[:])
+}
+
+// generateFileHash gera um hash MD5 do arquivo para identificar se já foi importado
+func (s *importService) generateFileHash(fileContent []byte) string {
+	hash := md5.Sum(fileContent)
+	return hex.EncodeToString(hash[:])
+}
+
 // normalizeDescription normaliza a descrição para comparação
 func (s *importService) normalizeDescription(desc string) string {
 	normalized := strings.ToLower(strings.TrimSpace(desc))
@@ -135,6 +157,14 @@ func (s *importService) ImportOFX(ctx context.Context, userID uuid.UUID, req *dt
 	// O parser já retorna "credit_card" ou "bank"
 	periodType := ofxFileType
 
+	// Criar mapa de external_ids permitidos para importação (se especificado)
+	allowedExternalIDs := make(map[string]bool)
+	if len(req.ExternalIDs) > 0 {
+		for _, id := range req.ExternalIDs {
+			allowedExternalIDs[id] = true
+		}
+	}
+
 	// Processar transações OFX
 	for i, ofxTxn := range ofxTransactions {
 		totalProcessed++
@@ -152,17 +182,42 @@ func (s *importService) ImportOFX(ctx context.Context, userID uuid.UUID, req *dt
 			earliestDate = &ofxTxn.Date
 		}
 
-		// Usar FITID como external_id para deduplicação (mais confiável que hash)
-		externalID := ofxTxn.FITID
+		// Gerar external_id combinando FITID com outros campos para garantir unicidade
+		// Isso resolve casos onde o FITID é duplicado (ex: IOF + compra internacional)
+		externalID := s.generateOFXExternalID(ofxTxn.FITID, ofxTxn.Date, ofxTxn.Amount, ofxTxn.Description)
 
-		// Verificar se já existe
+		// Se foi especificada uma lista de external_ids, verificar se esta transação está na lista
+		if len(allowedExternalIDs) > 0 && !allowedExternalIDs[externalID] {
+			// Esta transação não está na lista de permitidas, pular
+			_, err = tx.ExecContext(ctx, fmt.Sprintf("RELEASE SAVEPOINT %s", savepointName))
+			if err != nil {
+				tx.Rollback()
+				return nil, fmt.Errorf("erro ao liberar savepoint: %w", err)
+			}
+			continue
+		}
+
+		// Verificar se já existe (sempre verificar, mesmo que external_ids sejam especificados)
+		// Isso garante que não importamos duplicatas mesmo se o frontend enviar IDs incorretos
 		existing, err := s.transactionRepo.FindByExternalID(ctx, externalID)
 		if err != nil {
+			// Erro ao verificar - pular esta transação para evitar duplicatas
 			errorsCount++
+			_, releaseErr := tx.ExecContext(ctx, fmt.Sprintf("RELEASE SAVEPOINT %s", savepointName))
+			if releaseErr != nil {
+				tx.Rollback()
+				return nil, fmt.Errorf("erro ao liberar savepoint: %w", releaseErr)
+			}
 			continue
 		}
 		if existing != nil {
+			// Transação já existe - marcar como duplicata e pular
 			duplicates++
+			_, releaseErr := tx.ExecContext(ctx, fmt.Sprintf("RELEASE SAVEPOINT %s", savepointName))
+			if releaseErr != nil {
+				tx.Rollback()
+				return nil, fmt.Errorf("erro ao liberar savepoint: %w", releaseErr)
+			}
 			continue
 		}
 
@@ -564,24 +619,29 @@ func (s *importService) PreviewOFX(ctx context.Context, userID uuid.UUID, req *d
 		return nil, fmt.Errorf("arquivo OFX é de extrato bancário, mas a conta selecionada é do tipo 'credit'")
 	}
 
-	var transactions []*dto.TransactionDTO
+	// Gerar hash do arquivo para identificar se já foi importado
+	fileHash := s.generateFileHash(req.File)
+
+	var transactions []*dto.TransactionPreviewDTO
 	var totalTransactions, duplicates, newTransactions int
 
 	// Processar transações OFX
 	for _, ofxTxn := range ofxTransactions {
 		totalTransactions++
 
-		// Usar FITID como external_id para deduplicação
-		externalID := ofxTxn.FITID
+		// Gerar external_id combinando FITID com outros campos para garantir unicidade
+		// Isso resolve casos onde o FITID é duplicado (ex: IOF + compra internacional)
+		externalID := s.generateOFXExternalID(ofxTxn.FITID, ofxTxn.Date, ofxTxn.Amount, ofxTxn.Description)
 
 		// Verificar se já existe
 		existing, err := s.transactionRepo.FindByExternalID(ctx, externalID)
+		status := "new"
 		if err == nil && existing != nil {
 			duplicates++
-			continue
+			status = "existing"
+		} else {
+			newTransactions++
 		}
-
-		newTransactions++
 
 		// Determinar tipo de transação baseado no TRNTYPE do OFX
 		transactionType := "expense"
@@ -593,25 +653,30 @@ func (s *importService) PreviewOFX(ctx context.Context, userID uuid.UUID, req *d
 		referenceMonth := time.Date(ofxTxn.Date.Year(), ofxTxn.Date.Month(), 1, 0, 0, 0, 0, ofxTxn.Date.Location())
 		referenceMonthStr := referenceMonth.Format("2006-01")
 
-		// Criar DTO para preview
-		transactionDTO := &dto.TransactionDTO{
-			ID:             uuid.New().String(),
-			UserID:         userID.String(),
-			AccountID:      accountID.String(),
-			Type:           transactionType,
-			Amount:         ofxTxn.Amount,
-			Description:    ofxTxn.Description,
-			Date:           ofxTxn.Date.Format("2006-01-02"),
-			ReferenceMonth: &referenceMonthStr,
-			Status:         "paid",
-			Tags:           []string{},
-			CreatedAt:      time.Now().Format(time.RFC3339),
+		// Criar DTO para preview com status
+		transactionPreviewDTO := &dto.TransactionPreviewDTO{
+			TransactionDTO: dto.TransactionDTO{
+				ID:             uuid.New().String(),
+				UserID:         userID.String(),
+				AccountID:      accountID.String(),
+				Type:           transactionType,
+				Amount:         ofxTxn.Amount,
+				Description:    ofxTxn.Description,
+				Date:           ofxTxn.Date.Format("2006-01-02"),
+				ReferenceMonth: &referenceMonthStr,
+				Status:         "paid",
+				Tags:           []string{},
+				CreatedAt:      time.Now().Format(time.RFC3339),
+			},
+			ExternalID: externalID,
+			Status:     status,
 		}
 
-		transactions = append(transactions, transactionDTO)
+		transactions = append(transactions, transactionPreviewDTO)
 	}
 
 	return &dto.ImportPreviewResponse{
+		FileHash:          fileHash,
 		TotalTransactions: totalTransactions,
 		Duplicates:        duplicates,
 		NewTransactions:   newTransactions,
@@ -657,7 +722,10 @@ func (s *importService) PreviewCSV(ctx context.Context, userID uuid.UUID, req *d
 		return nil, errors.New("CSV deve ter pelo menos 3 colunas: date, amount, description")
 	}
 
-	var transactions []*dto.TransactionDTO
+	// Gerar hash do arquivo para identificar se já foi importado
+	fileHash := s.generateFileHash(req.File)
+
+	var transactions []*dto.TransactionPreviewDTO
 	var totalTransactions, duplicates, newTransactions int
 
 	// Processar linhas
@@ -709,36 +777,42 @@ func (s *importService) PreviewCSV(ctx context.Context, userID uuid.UUID, req *d
 
 		// Verificar se já existe
 		existing, err := s.transactionRepo.FindByExternalID(ctx, externalID)
+		status := "new"
 		if err == nil && existing != nil {
 			duplicates++
-			continue
+			status = "existing"
+		} else {
+			newTransactions++
 		}
-
-		newTransactions++
 
 		// Determinar mês de referência (primeiro dia do mês da data)
 		referenceMonth := time.Date(date.Year(), date.Month(), 1, 0, 0, 0, 0, date.Location())
 		referenceMonthStr := referenceMonth.Format("2006-01")
 
-		// Criar DTO para preview
-		transactionDTO := &dto.TransactionDTO{
-			ID:             uuid.New().String(),
-			UserID:         userID.String(),
-			AccountID:      accountID.String(),
-			Type:           "expense",
-			Amount:         amountInCents,
-			Description:    description,
-			Date:           date.Format("2006-01-02"),
-			ReferenceMonth: &referenceMonthStr,
-			Status:         "paid",
-			Tags:           []string{},
-			CreatedAt:      time.Now().Format(time.RFC3339),
+		// Criar DTO para preview com status
+		transactionPreviewDTO := &dto.TransactionPreviewDTO{
+			TransactionDTO: dto.TransactionDTO{
+				ID:             uuid.New().String(),
+				UserID:         userID.String(),
+				AccountID:      accountID.String(),
+				Type:           "expense",
+				Amount:         amountInCents,
+				Description:    description,
+				Date:           date.Format("2006-01-02"),
+				ReferenceMonth: &referenceMonthStr,
+				Status:         "paid",
+				Tags:           []string{},
+				CreatedAt:      time.Now().Format(time.RFC3339),
+			},
+			ExternalID: externalID,
+			Status:     status,
 		}
 
-		transactions = append(transactions, transactionDTO)
+		transactions = append(transactions, transactionPreviewDTO)
 	}
 
 	return &dto.ImportPreviewResponse{
+		FileHash:          fileHash,
 		TotalTransactions: totalTransactions,
 		Duplicates:        duplicates,
 		NewTransactions:   newTransactions,
