@@ -62,7 +62,7 @@ func NewServices(db *sqlx.DB, repositories *repository.Repositories, cfg *config
 		Recurrence:         NewRecurrenceService(repositories.Recurrence, repositories.Transaction, transactionService),
 		Installment:        installmentService,
 		CreditCard:         NewCreditCardService(repositories.CreditCard, repositories.CreditCardBill, repositories.Account, repositories.Transaction),
-		Import:             NewImportService(db, repositories.Transaction, repositories.Account, repositories.CreditCard, transactionPeriodService),
+		Import:             NewImportService(db, repositories.Transaction, repositories.Account, repositories.CreditCard, repositories.CreditCardBill, transactionPeriodService),
 		Analytics:          NewAnalyticsService(repositories.Transaction, repositories.Account, repositories.CreditCard, repositories.CreditCardBill),
 		TaskStatus:         NewTaskStatusService(repositories.TaskStatus, repositories.Task),
 		Task:               NewTaskService(db, repositories.Task, repositories.TaskStatus, repositories.Transaction, repositories.Account),

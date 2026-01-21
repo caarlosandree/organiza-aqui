@@ -29,11 +29,12 @@ type ImportService interface {
 }
 
 type importService struct {
-	db              *sqlx.DB
-	transactionRepo repository.TransactionRepository
-	accountRepo     repository.AccountRepository
-	creditCardRepo  repository.CreditCardRepository
-	periodService   TransactionPeriodService
+	db                *sqlx.DB
+	transactionRepo   repository.TransactionRepository
+	accountRepo       repository.AccountRepository
+	creditCardRepo    repository.CreditCardRepository
+	creditCardBillRepo repository.CreditCardBillRepository
+	periodService     TransactionPeriodService
 }
 
 func NewImportService(
@@ -41,14 +42,16 @@ func NewImportService(
 	transactionRepo repository.TransactionRepository,
 	accountRepo repository.AccountRepository,
 	creditCardRepo repository.CreditCardRepository,
+	creditCardBillRepo repository.CreditCardBillRepository,
 	periodService TransactionPeriodService,
 ) ImportService {
 	return &importService{
-		db:              db,
-		transactionRepo: transactionRepo,
-		accountRepo:     accountRepo,
-		creditCardRepo:  creditCardRepo,
-		periodService:   periodService,
+		db:                db,
+		transactionRepo:   transactionRepo,
+		accountRepo:       accountRepo,
+		creditCardRepo:    creditCardRepo,
+		creditCardBillRepo: creditCardBillRepo,
+		periodService:     periodService,
 	}
 }
 
@@ -260,8 +263,64 @@ func (s *importService) ImportOFX(ctx context.Context, userID uuid.UUID, req *dt
 			transactionType = "income"
 		}
 
-		// Usar data da transação como mês de referência (primeiro dia do mês)
-		referenceMonth := time.Date(ofxTxn.Date.Year(), ofxTxn.Date.Month(), 1, 0, 0, 0, 0, ofxTxn.Date.Location())
+		// Verificar se é um pagamento de fatura
+		isPayment := s.isBillPayment(ofxTxn.Description, ofxTxn.Type)
+
+		// Determinar mês de referência e fatura relacionada
+		var referenceMonth time.Time
+		var billID *uuid.UUID
+
+		if isPayment && ofxFileType == "credit_card" {
+			// Para pagamentos de fatura, determinar a fatura correta
+			creditCards, err := s.creditCardRepo.FindByAccountID(ctx, accountID)
+			if err == nil && len(creditCards) > 0 {
+				// Usar o primeiro cartão vinculado (assumindo um cartão por conta)
+				creditCard := creditCards[0]
+
+				// Determinar qual fatura o pagamento pertence
+				// Se o pagamento é antes do dia de fechamento, pertence ao mês anterior
+				paymentDate := ofxTxn.Date
+				paymentYear := paymentDate.Year()
+				paymentMonth := int(paymentDate.Month())
+				paymentDay := paymentDate.Day()
+
+				// Se o pagamento é antes do dia de fechamento, pertence ao mês anterior
+				if paymentDay < creditCard.ClosingDay {
+					// Pagamento pertence ao mês anterior
+					paymentMonth--
+					if paymentMonth < 1 {
+						paymentMonth = 12
+						paymentYear--
+					}
+				}
+
+				// Buscar fatura do mês determinado diretamente na transação
+				// IMPORTANTE: Não criar a fatura se não existir
+				// Apenas relacionar se já existir
+				var bill model.CreditCardBill
+				billQuery := `SELECT id, credit_card_id, month, year, status, closing_date, due_date, payment_transaction_id, created_at, updated_at
+				              FROM credit_card_bills 
+				              WHERE credit_card_id = $1 AND year = $2 AND month = $3`
+				err = tx.GetContext(ctx, &bill, billQuery, creditCard.ID, paymentYear, paymentMonth)
+				if err == nil {
+					// Fatura existe - relacionar o pagamento
+					billID = &bill.ID
+				}
+				// Se a fatura não existir (sql.ErrNoRows), billID permanece nil
+				// A transação será criada normalmente, mas sem relacionamento com fatura
+				// Quando o usuário importar o extrato do mês anterior, a fatura será criada
+				// e o pagamento poderá ser relacionado depois
+
+				// Mesmo que seja pagamento, usar o mês da fatura como referência
+				referenceMonth = time.Date(paymentYear, time.Month(paymentMonth), 1, 0, 0, 0, 0, ofxTxn.Date.Location())
+			} else {
+				// Não encontrou cartão - usar data da transação como referência
+				referenceMonth = time.Date(ofxTxn.Date.Year(), ofxTxn.Date.Month(), 1, 0, 0, 0, 0, ofxTxn.Date.Location())
+			}
+		} else {
+			// Para transações normais, usar data da transação como mês de referência
+			referenceMonth = time.Date(ofxTxn.Date.Year(), ofxTxn.Date.Month(), 1, 0, 0, 0, 0, ofxTxn.Date.Location())
+		}
 
 		// Obter ou criar período
 		period, err := s.periodService.GetOrCreatePeriod(ctx, userID, accountID, referenceMonth, periodType)
@@ -314,6 +373,22 @@ func (s *importService) ImportOFX(ctx context.Context, userID uuid.UUID, req *dt
 			// Fazer rollback e retornar erro
 			tx.Rollback()
 			return nil, fmt.Errorf("erro ao inserir transação: %w", err)
+		}
+
+		// Se é um pagamento e encontramos uma fatura existente, relacionar
+		if isPayment && billID != nil {
+			// Atualizar fatura com payment_transaction_id
+			// Apenas atualizar se ainda não tiver payment_transaction_id (evitar sobrescrever)
+			updateBillQuery := `
+				UPDATE credit_card_bills 
+				SET payment_transaction_id = $1, status = 'paid', updated_at = $2
+				WHERE id = $3 AND payment_transaction_id IS NULL
+			`
+			_, err = tx.ExecContext(ctx, updateBillQuery, transaction.ID, now, *billID)
+			if err != nil {
+				// Erro ao atualizar fatura - logar mas não falhar a importação
+				// A transação já foi criada com sucesso
+			}
 		}
 
 		// Atualizar saldo da conta
