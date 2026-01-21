@@ -18,6 +18,7 @@ import (
 	appError "github.com/organiza-aqui/backend/internal/error"
 	"github.com/organiza-aqui/backend/internal/model"
 	"github.com/organiza-aqui/backend/internal/repository"
+	"github.com/organiza-aqui/backend/internal/util"
 )
 
 type ImportService interface {
@@ -69,7 +70,6 @@ func (s *importService) normalizeDescription(desc string) string {
 }
 
 // ImportOFX importa transações de um arquivo OFX
-// Por enquanto, implementação básica - pode ser expandida com parser OFX completo
 func (s *importService) ImportOFX(ctx context.Context, userID uuid.UUID, req *dto.ImportOFXRequest) (*dto.ImportResponse, error) {
 	// Validar conta
 	accountID, err := uuid.Parse(req.AccountID)
@@ -88,9 +88,150 @@ func (s *importService) ImportOFX(ctx context.Context, userID uuid.UUID, req *dt
 		return nil, appError.ErrUnauthorizedAccess
 	}
 
-	// TODO: Implementar parser OFX completo
-	// Por enquanto, retornar erro informando que precisa de implementação
-	return nil, errors.New("parser OFX ainda não implementado - use CSV por enquanto")
+	// Parse do arquivo OFX
+	parser := util.NewOFXParser()
+	if err := parser.Parse(req.File); err != nil {
+		return nil, fmt.Errorf("erro ao parsear arquivo OFX: %w", err)
+	}
+
+	ofxTransactions := parser.GetTransactions()
+	if len(ofxTransactions) == 0 {
+		return nil, errors.New("nenhuma transação encontrada no arquivo OFX")
+	}
+
+	// Iniciar transação ACID
+	tx, err := s.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao iniciar transação: %w", err)
+	}
+	defer tx.Rollback()
+
+	var totalProcessed, duplicates, created, errorsCount int
+	now := time.Now()
+	var earliestDate *time.Time // Data mais antiga do extrato
+
+	// Determinar tipo de período baseado no tipo da conta
+	periodType := "bank"
+	if account.Type == "credit" {
+		periodType = "credit_card"
+	}
+
+	// Processar transações OFX
+	for _, ofxTxn := range ofxTransactions {
+		totalProcessed++
+
+		// Atualizar data mais antiga
+		if earliestDate == nil || ofxTxn.Date.Before(*earliestDate) {
+			earliestDate = &ofxTxn.Date
+		}
+
+		// Usar FITID como external_id para deduplicação (mais confiável que hash)
+		externalID := ofxTxn.FITID
+
+		// Verificar se já existe
+		existing, err := s.transactionRepo.FindByExternalID(ctx, externalID)
+		if err != nil {
+			errorsCount++
+			continue
+		}
+		if existing != nil {
+			duplicates++
+			continue
+		}
+
+		// Determinar tipo de transação baseado no TRNTYPE do OFX
+		transactionType := "expense"
+		if ofxTxn.Type == "CREDIT" {
+			transactionType = "income"
+		}
+
+		// Usar data da transação como mês de referência (primeiro dia do mês)
+		referenceMonth := time.Date(ofxTxn.Date.Year(), ofxTxn.Date.Month(), 1, 0, 0, 0, 0, ofxTxn.Date.Location())
+
+		// Obter ou criar período
+		period, err := s.periodService.GetOrCreatePeriod(ctx, userID, accountID, referenceMonth, periodType)
+		if err != nil {
+			errorsCount++
+			continue
+		}
+
+		// Criar transação
+		transaction := &model.Transaction{
+			ID:             uuid.New(),
+			UserID:         userID,
+			AccountID:      accountID,
+			CategoryID:     nil,
+			Type:           transactionType,
+			Amount:         ofxTxn.Amount,
+			Description:    ofxTxn.Description,
+			Date:           ofxTxn.Date,
+			Status:         "paid",
+			Tags:           pq.StringArray{},
+			ExternalID:     &externalID,
+			PeriodID:       &period.ID,
+			ReferenceMonth: &referenceMonth,
+			CreatedAt:      now,
+		}
+
+		// Inserir na transação
+		query := `
+			INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, description, date,
+			                         status, tags, to_account_id, parent_transaction_id, installment_number,
+			                         total_installments, external_id, period_id, reference_month, created_at)
+			VALUES (:id, :user_id, :account_id, :category_id, :type, :amount, :description, :date,
+			        :status, :tags, :to_account_id, :parent_transaction_id, :installment_number,
+			        :total_installments, :external_id, :period_id, :reference_month, :created_at)
+		`
+		_, err = tx.NamedExecContext(ctx, query, transaction)
+		if err != nil {
+			errorsCount++
+			continue
+		}
+
+		// Atualizar saldo da conta
+		// Para despesas, subtrair; para receitas, somar
+		var balanceChange int64
+		if transactionType == "expense" {
+			balanceChange = -ofxTxn.Amount
+		} else {
+			balanceChange = ofxTxn.Amount
+		}
+
+		queryUpdateBalance := `UPDATE accounts SET balance = balance + $1 WHERE id = $2`
+		_, err = tx.ExecContext(ctx, queryUpdateBalance, balanceChange, accountID)
+		if err != nil {
+			errorsCount++
+			continue
+		}
+
+		created++
+	}
+
+	// Commit transação
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("erro ao finalizar transação: %w", err)
+	}
+
+	// Verificar se precisa atualizar saldo inicial
+	if earliestDate != nil {
+		// Buscar conta atualizada para verificar initial_balance_date
+		updatedAccount, err := s.accountRepo.FindByID(ctx, accountID)
+		if err == nil && updatedAccount != nil {
+			// Se não há initial_balance_date ou a data do extrato é anterior,
+			// o usuário pode querer atualizar o saldo inicial manualmente
+			if updatedAccount.InitialBalanceDate == nil || earliestDate.Before(*updatedAccount.InitialBalanceDate) {
+				// Potencial necessidade de atualização de saldo inicial
+				// O usuário pode fazer isso manualmente através do endpoint de atualização
+			}
+		}
+	}
+
+	return &dto.ImportResponse{
+		TotalProcessed: totalProcessed,
+		Duplicates:     duplicates,
+		Created:        created,
+		Errors:         errorsCount,
+	}, nil
 }
 
 // ImportCSV importa transações de um arquivo CSV
@@ -310,8 +451,87 @@ func (s *importService) ImportCSV(ctx context.Context, userID uuid.UUID, req *dt
 
 // PreviewOFX faz preview das transações OFX sem importar
 func (s *importService) PreviewOFX(ctx context.Context, userID uuid.UUID, req *dto.ImportOFXRequest) (*dto.ImportPreviewResponse, error) {
-	// TODO: Implementar preview OFX
-	return nil, errors.New("preview OFX ainda não implementado")
+	// Validar conta
+	accountID, err := uuid.Parse(req.AccountID)
+	if err != nil {
+		return nil, fmt.Errorf("account_id inválido: %w", err)
+	}
+
+	account, err := s.accountRepo.FindByID(ctx, accountID)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao buscar conta: %w", err)
+	}
+	if account == nil {
+		return nil, fmt.Errorf("conta %s: %w", accountID, appError.ErrAccountNotFound)
+	}
+	if account.UserID != userID {
+		return nil, appError.ErrUnauthorizedAccess
+	}
+
+	// Parse do arquivo OFX
+	parser := util.NewOFXParser()
+	if err := parser.Parse(req.File); err != nil {
+		return nil, fmt.Errorf("erro ao parsear arquivo OFX: %w", err)
+	}
+
+	ofxTransactions := parser.GetTransactions()
+	if len(ofxTransactions) == 0 {
+		return nil, errors.New("nenhuma transação encontrada no arquivo OFX")
+	}
+
+	var transactions []*dto.TransactionDTO
+	var totalTransactions, duplicates, newTransactions int
+
+	// Processar transações OFX
+	for _, ofxTxn := range ofxTransactions {
+		totalTransactions++
+
+		// Usar FITID como external_id para deduplicação
+		externalID := ofxTxn.FITID
+
+		// Verificar se já existe
+		existing, err := s.transactionRepo.FindByExternalID(ctx, externalID)
+		if err == nil && existing != nil {
+			duplicates++
+			continue
+		}
+
+		newTransactions++
+
+		// Determinar tipo de transação baseado no TRNTYPE do OFX
+		transactionType := "expense"
+		if ofxTxn.Type == "CREDIT" {
+			transactionType = "income"
+		}
+
+		// Determinar mês de referência (primeiro dia do mês da data)
+		referenceMonth := time.Date(ofxTxn.Date.Year(), ofxTxn.Date.Month(), 1, 0, 0, 0, 0, ofxTxn.Date.Location())
+		referenceMonthStr := referenceMonth.Format("2006-01")
+
+		// Criar DTO para preview
+		transactionDTO := &dto.TransactionDTO{
+			ID:             uuid.New().String(),
+			UserID:         userID.String(),
+			AccountID:      accountID.String(),
+			Type:           transactionType,
+			Amount:         ofxTxn.Amount,
+			Description:    ofxTxn.Description,
+			Date:           ofxTxn.Date.Format("2006-01-02"),
+			ReferenceMonth: &referenceMonthStr,
+			Status:         "paid",
+			Tags:           []string{},
+			CreatedAt:      time.Now().Format(time.RFC3339),
+		}
+
+		transactions = append(transactions, transactionDTO)
+	}
+
+	return &dto.ImportPreviewResponse{
+		TotalTransactions: totalTransactions,
+		Duplicates:        duplicates,
+		NewTransactions:   newTransactions,
+		Transactions:      transactions,
+	}, nil
 }
 
 // PreviewCSV faz preview das transações CSV sem importar
