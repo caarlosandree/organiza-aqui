@@ -20,9 +20,9 @@ type AnalyticsService interface {
 }
 
 type analyticsService struct {
-	transactionRepo  repository.TransactionRepository
-	accountRepo      repository.AccountRepository
-	creditCardRepo   repository.CreditCardRepository
+	transactionRepo    repository.TransactionRepository
+	accountRepo        repository.AccountRepository
+	creditCardRepo     repository.CreditCardRepository
 	creditCardBillRepo repository.CreditCardBillRepository
 }
 
@@ -33,9 +33,9 @@ func NewAnalyticsService(
 	creditCardBillRepo repository.CreditCardBillRepository,
 ) AnalyticsService {
 	return &analyticsService{
-		transactionRepo:  transactionRepo,
-		accountRepo:      accountRepo,
-		creditCardRepo:   creditCardRepo,
+		transactionRepo:    transactionRepo,
+		accountRepo:        accountRepo,
+		creditCardRepo:     creditCardRepo,
 		creditCardBillRepo: creditCardBillRepo,
 	}
 }
@@ -233,8 +233,8 @@ func (s *analyticsService) GetCalendarioVencimentos(ctx context.Context, userID 
 	// Buscar transações pendentes
 	pendingStatus := "pending"
 	filters := &dto.TransactionFilters{
-		Status:   &pendingStatus,
-		EndDate:  func() *string { s := endDate.Format("2006-01-02"); return &s }(),
+		Status:  &pendingStatus,
+		EndDate: func() *string { s := endDate.Format("2006-01-02"); return &s }(),
 	}
 
 	transactions, err := s.transactionRepo.FindByUserID(ctx, userID, filters)
@@ -310,7 +310,7 @@ func (s *analyticsService) GetGastosPorTag(ctx context.Context, userID uuid.UUID
 	var totalAmount int64
 
 	for _, t := range transactions {
-		if t.Tags == nil || len(t.Tags) == 0 {
+		if len(t.Tags) == 0 {
 			continue
 		}
 

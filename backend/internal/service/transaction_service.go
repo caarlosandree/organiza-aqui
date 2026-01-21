@@ -25,11 +25,11 @@ type TransactionService interface {
 }
 
 type transactionService struct {
-	db                *sqlx.DB
-	transactionRepo   repository.TransactionRepository
-	accountRepo       repository.AccountRepository
-	categoryRepo      repository.CategoryRepository
-	periodService     TransactionPeriodService
+	db                 *sqlx.DB
+	transactionRepo    repository.TransactionRepository
+	accountRepo        repository.AccountRepository
+	categoryRepo       repository.CategoryRepository
+	periodService      TransactionPeriodService
 	installmentService InstallmentService
 }
 
@@ -42,11 +42,11 @@ func NewTransactionService(
 	installmentService InstallmentService,
 ) TransactionService {
 	return &transactionService{
-		db:                db,
-		transactionRepo:   transactionRepo,
-		accountRepo:       accountRepo,
-		categoryRepo:      categoryRepo,
-		periodService:     periodService,
+		db:                 db,
+		transactionRepo:    transactionRepo,
+		accountRepo:        accountRepo,
+		categoryRepo:       categoryRepo,
+		periodService:      periodService,
 		installmentService: installmentService,
 	}
 }
@@ -621,7 +621,7 @@ func (s *transactionService) modelToDTO(transaction *model.Transaction) *dto.Tra
 		dto.CategoryID = &categoryIDStr
 	}
 
-	if transaction.Tags != nil && len(transaction.Tags) > 0 {
+	if len(transaction.Tags) > 0 {
 		dto.Tags = []string(transaction.Tags)
 	}
 

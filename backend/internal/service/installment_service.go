@@ -23,10 +23,10 @@ type InstallmentService interface {
 }
 
 type installmentService struct {
-	db               *sqlx.DB
-	transactionRepo  repository.TransactionRepository
-	accountRepo      repository.AccountRepository
-	categoryRepo     repository.CategoryRepository
+	db              *sqlx.DB
+	transactionRepo repository.TransactionRepository
+	accountRepo     repository.AccountRepository
+	categoryRepo    repository.CategoryRepository
 }
 
 func NewInstallmentService(
@@ -126,20 +126,20 @@ func (s *installmentService) CreateInstallments(ctx context.Context, userID uuid
 
 	// Criar transação mãe (primeira parcela)
 	parentTransaction := &model.Transaction{
-		ID:                parentID,
-		UserID:            userID,
-		AccountID:         accountID,
-		CategoryID:        categoryID,
-		Type:              req.Type,
-		Amount:            amountPerInstallment + remainder, // primeira parcela recebe o resto
-		Description:       req.Description,
-		Date:              date,
-		Status:            status,
-		Tags:              tags,
+		ID:                  parentID,
+		UserID:              userID,
+		AccountID:           accountID,
+		CategoryID:          categoryID,
+		Type:                req.Type,
+		Amount:              amountPerInstallment + remainder, // primeira parcela recebe o resto
+		Description:         req.Description,
+		Date:                date,
+		Status:              status,
+		Tags:                tags,
 		ParentTransactionID: nil, // transação mãe não tem pai
-		InstallmentNumber: func() *int { n := 1; return &n }(),
-		TotalInstallments: &totalInstallments,
-		CreatedAt:         now,
+		InstallmentNumber:   func() *int { n := 1; return &n }(),
+		TotalInstallments:   &totalInstallments,
+		CreatedAt:           now,
 	}
 
 	// Inserir transação mãe
@@ -177,20 +177,20 @@ func (s *installmentService) CreateInstallments(ctx context.Context, userID uuid
 		installmentNumber := i
 
 		installment := &model.Transaction{
-			ID:                uuid.New(),
-			UserID:            userID,
-			AccountID:         accountID,
-			CategoryID:        categoryID,
-			Type:              req.Type,
-			Amount:            amountPerInstallment,
-			Description:       fmt.Sprintf("%s (Parcela %d/%d)", req.Description, i, totalInstallments),
-			Date:              installmentDate,
-			Status:            "pending", // parcelas futuras são pending
-			Tags:              tags,
+			ID:                  uuid.New(),
+			UserID:              userID,
+			AccountID:           accountID,
+			CategoryID:          categoryID,
+			Type:                req.Type,
+			Amount:              amountPerInstallment,
+			Description:         fmt.Sprintf("%s (Parcela %d/%d)", req.Description, i, totalInstallments),
+			Date:                installmentDate,
+			Status:              "pending", // parcelas futuras são pending
+			Tags:                tags,
 			ParentTransactionID: &parentID,
-			InstallmentNumber: &installmentNumber,
-			TotalInstallments: &totalInstallments,
-			CreatedAt:         now,
+			InstallmentNumber:   &installmentNumber,
+			TotalInstallments:   &totalInstallments,
+			CreatedAt:           now,
 		}
 
 		queryInstallment := `
@@ -457,7 +457,7 @@ func (s *installmentService) modelToDTO(transaction *model.Transaction) *dto.Tra
 		dto.CategoryID = &categoryIDStr
 	}
 
-	if transaction.Tags != nil && len(transaction.Tags) > 0 {
+	if len(transaction.Tags) > 0 {
 		dto.Tags = []string(transaction.Tags)
 	}
 

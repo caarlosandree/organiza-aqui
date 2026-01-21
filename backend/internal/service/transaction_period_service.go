@@ -21,9 +21,9 @@ type TransactionPeriodService interface {
 }
 
 type transactionPeriodService struct {
-	periodRepo     repository.TransactionPeriodRepository
+	periodRepo      repository.TransactionPeriodRepository
 	transactionRepo repository.TransactionRepository
-	accountRepo    repository.AccountRepository
+	accountRepo     repository.AccountRepository
 }
 
 func NewTransactionPeriodService(
@@ -42,7 +42,7 @@ func NewTransactionPeriodService(
 func (s *transactionPeriodService) GetOrCreatePeriod(ctx context.Context, userID uuid.UUID, accountID uuid.UUID, referenceMonth time.Time, periodType string) (*model.TransactionPeriod, error) {
 	// Garantir que referenceMonth seja o primeiro dia do mês
 	referenceMonth = time.Date(referenceMonth.Year(), referenceMonth.Month(), 1, 0, 0, 0, 0, referenceMonth.Location())
-	
+
 	year := referenceMonth.Year()
 	month := int(referenceMonth.Month())
 
@@ -87,7 +87,7 @@ func (s *transactionPeriodService) GetPeriodsByUserID(ctx context.Context, userI
 	dtos := make([]*dto.TransactionPeriodDTO, len(periods))
 	for i, period := range periods {
 		dtos[i] = s.modelToDTO(period)
-		
+
 		// Buscar nome da conta
 		account, err := s.accountRepo.FindByID(ctx, period.AccountID)
 		if err == nil && account != nil {
@@ -117,7 +117,7 @@ func (s *transactionPeriodService) GetPeriodWithTransactions(ctx context.Context
 	transactionFilters := &dto.TransactionFilters{
 		AccountID: func() *string { s := period.AccountID.String(); return &s }(),
 	}
-	
+
 	transactions, err := s.transactionRepo.FindByUserID(ctx, userID, transactionFilters)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao buscar transações: %w", err)
@@ -133,7 +133,7 @@ func (s *transactionPeriodService) GetPeriodWithTransactions(ctx context.Context
 
 	// Calcular estatísticas
 	var totalIncome, totalBankExpense, totalCreditCardExpense int64
-	
+
 	for _, t := range periodTransactions {
 		if period.PeriodType == "bank" {
 			if t.Type == "income" {
@@ -164,12 +164,12 @@ func (s *transactionPeriodService) GetPeriodWithTransactions(ctx context.Context
 	}
 
 	return &dto.PeriodWithTransactionsDTO{
-		Period:                *s.modelToDTOWithAccountName(period, accountName),
-		Transactions:          transactionDTOs,
-		TotalIncome:           totalIncome,
-		TotalBankExpense:      totalBankExpense,
+		Period:                 *s.modelToDTOWithAccountName(period, accountName),
+		Transactions:           transactionDTOs,
+		TotalIncome:            totalIncome,
+		TotalBankExpense:       totalBankExpense,
 		TotalCreditCardExpense: totalCreditCardExpense,
-		Balance:               balance,
+		Balance:                balance,
 	}, nil
 }
 
@@ -211,7 +211,7 @@ func (s *transactionPeriodService) transactionToDTO(transaction *model.Transacti
 		dto.CategoryID = &categoryIDStr
 	}
 
-	if transaction.Tags != nil && len(transaction.Tags) > 0 {
+	if len(transaction.Tags) > 0 {
 		dto.Tags = []string(transaction.Tags)
 	}
 
