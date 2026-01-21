@@ -64,6 +64,7 @@ coverage/
 # Arquivos de documentação gerados
 docs/_build/
 site/
+docs/examples/
 
 # Arquivos de migração temporários
 *.migration.tmp

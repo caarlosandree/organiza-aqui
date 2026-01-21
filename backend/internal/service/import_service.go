@@ -117,8 +117,16 @@ func (s *importService) ImportOFX(ctx context.Context, userID uuid.UUID, req *dt
 	}
 
 	// Processar transações OFX
-	for _, ofxTxn := range ofxTransactions {
+	for i, ofxTxn := range ofxTransactions {
 		totalProcessed++
+
+		// Criar savepoint para isolar cada operação
+		savepointName := fmt.Sprintf("sp_%d", i)
+		_, err = tx.ExecContext(ctx, fmt.Sprintf("SAVEPOINT %s", savepointName))
+		if err != nil {
+			tx.Rollback()
+			return nil, fmt.Errorf("erro ao criar savepoint: %w", err)
+		}
 
 		// Atualizar data mais antiga
 		if earliestDate == nil || ofxTxn.Date.Before(*earliestDate) {
@@ -184,8 +192,21 @@ func (s *importService) ImportOFX(ctx context.Context, userID uuid.UUID, req *dt
 		`
 		_, err = tx.NamedExecContext(ctx, query, transaction)
 		if err != nil {
-			errorsCount++
-			continue
+			// Verificar se é erro de violação de constraint de unicidade (duplicata)
+			if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+				// É uma duplicata esperada - fazer rollback para o savepoint e continuar
+				_, rollbackErr := tx.ExecContext(ctx, fmt.Sprintf("ROLLBACK TO SAVEPOINT %s", savepointName))
+				if rollbackErr != nil {
+					tx.Rollback()
+					return nil, fmt.Errorf("erro ao fazer rollback para savepoint: %w", rollbackErr)
+				}
+				duplicates++
+				continue
+			}
+			// Erro dentro da transação coloca a transação em estado de falha
+			// Fazer rollback e retornar erro
+			tx.Rollback()
+			return nil, fmt.Errorf("erro ao inserir transação: %w", err)
 		}
 
 		// Atualizar saldo da conta
@@ -200,8 +221,17 @@ func (s *importService) ImportOFX(ctx context.Context, userID uuid.UUID, req *dt
 		queryUpdateBalance := `UPDATE accounts SET balance = balance + $1 WHERE id = $2`
 		_, err = tx.ExecContext(ctx, queryUpdateBalance, balanceChange, accountID)
 		if err != nil {
-			errorsCount++
-			continue
+			// Erro dentro da transação coloca a transação em estado de falha
+			// Fazer rollback e retornar erro
+			tx.Rollback()
+			return nil, fmt.Errorf("erro ao atualizar saldo da conta: %w", err)
+		}
+
+		// Liberar savepoint após sucesso
+		_, err = tx.ExecContext(ctx, fmt.Sprintf("RELEASE SAVEPOINT %s", savepointName))
+		if err != nil {
+			tx.Rollback()
+			return nil, fmt.Errorf("erro ao liberar savepoint: %w", err)
 		}
 
 		created++
@@ -403,16 +433,26 @@ func (s *importService) ImportCSV(ctx context.Context, userID uuid.UUID, req *dt
 		`
 		_, err = tx.NamedExecContext(ctx, query, transaction)
 		if err != nil {
-			errorsCount++
-			continue
+			// Verificar se é erro de violação de constraint de unicidade (duplicata)
+			if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+				// É uma duplicata esperada - tratar como duplicata e continuar
+				duplicates++
+				continue
+			}
+			// Erro dentro da transação coloca a transação em estado de falha
+			// Fazer rollback e retornar erro
+			tx.Rollback()
+			return nil, fmt.Errorf("erro ao inserir transação: %w", err)
 		}
 
 		// Atualizar saldo da conta
 		queryUpdateBalance := `UPDATE accounts SET balance = balance - $1 WHERE id = $2`
 		_, err = tx.ExecContext(ctx, queryUpdateBalance, amountInCents, accountID)
 		if err != nil {
-			errorsCount++
-			continue
+			// Erro dentro da transação coloca a transação em estado de falha
+			// Fazer rollback e retornar erro
+			tx.Rollback()
+			return nil, fmt.Errorf("erro ao atualizar saldo da conta: %w", err)
 		}
 
 		created++

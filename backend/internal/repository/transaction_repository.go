@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -75,11 +76,39 @@ func (r *transactionRepository) FindByUserID(ctx context.Context, userID uuid.UU
 		WhereEqual("user_id", userID)
 
 	if filters != nil {
-		qb.WhereEqual("account_id", filters.AccountID).
-			WhereEqual("category_id", filters.CategoryID).
-			WhereEqual("type", filters.Type).
+		// Converter strings para UUID quando necessário
+		var accountID uuid.UUID
+		if filters.AccountID != nil {
+			var err error
+			accountID, err = uuid.Parse(*filters.AccountID)
+			if err != nil {
+				return nil, fmt.Errorf("account_id inválido: %w", err)
+			}
+			qb.WhereEqual("account_id", accountID)
+		}
+
+		var categoryID uuid.UUID
+		if filters.CategoryID != nil {
+			var err error
+			categoryID, err = uuid.Parse(*filters.CategoryID)
+			if err != nil {
+				return nil, fmt.Errorf("category_id inválido: %w", err)
+			}
+			qb.WhereEqual("category_id", categoryID)
+		}
+
+		var parentTransactionID uuid.UUID
+		if filters.ParentTransactionID != nil {
+			var err error
+			parentTransactionID, err = uuid.Parse(*filters.ParentTransactionID)
+			if err != nil {
+				return nil, fmt.Errorf("parent_transaction_id inválido: %w", err)
+			}
+			qb.WhereEqual("parent_transaction_id", parentTransactionID)
+		}
+
+		qb.WhereEqual("type", filters.Type).
 			WhereEqual("status", filters.Status).
-			WhereEqual("parent_transaction_id", filters.ParentTransactionID).
 			WhereGreaterOrEqual("date", filters.StartDate).
 			WhereLessOrEqual("date", filters.EndDate)
 
@@ -105,11 +134,33 @@ func (r *transactionRepository) CountByUserID(ctx context.Context, userID uuid.U
 		WhereEqual("user_id", userID)
 
 	if filters != nil {
-		qb.WhereEqual("account_id", filters.AccountID).
-			WhereEqual("category_id", filters.CategoryID).
-			WhereEqual("type", filters.Type).
+		// Converter strings para UUID quando necessário
+		if filters.AccountID != nil {
+			accountID, err := uuid.Parse(*filters.AccountID)
+			if err != nil {
+				return 0, fmt.Errorf("account_id inválido: %w", err)
+			}
+			qb.WhereEqual("account_id", accountID)
+		}
+
+		if filters.CategoryID != nil {
+			categoryID, err := uuid.Parse(*filters.CategoryID)
+			if err != nil {
+				return 0, fmt.Errorf("category_id inválido: %w", err)
+			}
+			qb.WhereEqual("category_id", categoryID)
+		}
+
+		if filters.ParentTransactionID != nil {
+			parentTransactionID, err := uuid.Parse(*filters.ParentTransactionID)
+			if err != nil {
+				return 0, fmt.Errorf("parent_transaction_id inválido: %w", err)
+			}
+			qb.WhereEqual("parent_transaction_id", parentTransactionID)
+		}
+
+		qb.WhereEqual("type", filters.Type).
 			WhereEqual("status", filters.Status).
-			WhereEqual("parent_transaction_id", filters.ParentTransactionID).
 			WhereGreaterOrEqual("date", filters.StartDate).
 			WhereLessOrEqual("date", filters.EndDate).
 			WhereGreaterOrEqual("amount", filters.MinAmount).
