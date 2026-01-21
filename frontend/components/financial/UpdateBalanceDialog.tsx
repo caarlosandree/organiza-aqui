@@ -27,7 +27,7 @@ import { updateInitialBalanceSchema, type UpdateInitialBalanceFormData } from '@
 import type { Account } from '@/types/financial'
 import { formatCurrency } from '@/utils/currency'
 import { useUpdateInitialBalance } from '@/hooks/mutations/useAccountMutations'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -98,10 +98,15 @@ function UpdateBalanceDialogContent({ account, onOpenChange }: Omit<UpdateBalanc
 
   const onSubmit = async (data: UpdateInitialBalanceFormData) => {
     try {
+      // Para cartão de crédito, inverter sinal (usuário digita positivo, sistema armazena negativo)
+      const balanceToSend = account.type === 'credit' && data.balance > 0
+        ? -data.balance
+        : data.balance
+
       await updateMutation.mutateAsync({
         id: account.id,
         data: {
-          balance: data.balance,
+          balance: balanceToSend,
           date: data.date,
         },
       })
@@ -122,6 +127,19 @@ function UpdateBalanceDialogContent({ account, onOpenChange }: Omit<UpdateBalanc
             Informe o saldo atual da conta e a data de referência. O sistema criará uma transação de ajuste se necessário.
           </DialogDescription>
         </DialogHeader>
+
+        {account.type === 'credit' && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Atenção - Cartão de Crédito</AlertTitle>
+            <AlertDescription>
+              Para cartão de crédito, informe o valor da <strong>dívida atual</strong> (valor positivo).
+              O sistema converterá automaticamente para saldo negativo.
+              <br />
+              Exemplo: Se você deve R$ 500, digite "500" (não "-500").
+            </AlertDescription>
+          </Alert>
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">

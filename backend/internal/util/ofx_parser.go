@@ -20,6 +20,7 @@ type OFXTransaction struct {
 // OFXParser é responsável por fazer parse de arquivos OFX
 type OFXParser struct {
 	transactions []OFXTransaction
+	fileType     string // "credit_card" ou "bank"
 }
 
 // NewOFXParser cria um novo parser OFX
@@ -38,15 +39,23 @@ func (p *OFXParser) Parse(content []byte) error {
 		return fmt.Errorf("arquivo OFX inválido: não contém tag <OFX>")
 	}
 
-	// Extrair seção de transações de cartão de crédito
-	if strings.Contains(contentStr, "<CREDITCARDMSGSRSV1>") {
+	// Detectar tipo do arquivo e extrair transações
+	hasCreditCard := strings.Contains(contentStr, "<CREDITCARDMSGSRSV1>")
+	hasBank := strings.Contains(contentStr, "<BANKMSGSRSV1>")
+
+	if hasCreditCard {
+		p.fileType = "credit_card"
 		if err := p.parseCreditCardTransactions(contentStr); err != nil {
 			return fmt.Errorf("erro ao parsear transações de cartão de crédito: %w", err)
 		}
 	}
 
-	// Extrair seção de transações bancárias
-	if strings.Contains(contentStr, "<BANKMSGSRSV1>") {
+	if hasBank {
+		// Se já tem credit_card, manter credit_card como tipo principal
+		// Caso contrário, definir como bank
+		if !hasCreditCard {
+			p.fileType = "bank"
+		}
 		if err := p.parseBankTransactions(contentStr); err != nil {
 			return fmt.Errorf("erro ao parsear transações bancárias: %w", err)
 		}
@@ -56,12 +65,25 @@ func (p *OFXParser) Parse(content []byte) error {
 		return fmt.Errorf("nenhuma transação encontrada no arquivo OFX")
 	}
 
+	// Se não detectou nenhum tipo, definir como bank por padrão
+	if p.fileType == "" {
+		p.fileType = "bank"
+	}
+
 	return nil
 }
 
 // GetTransactions retorna as transações parseadas
 func (p *OFXParser) GetTransactions() []OFXTransaction {
 	return p.transactions
+}
+
+// GetFileType retorna o tipo do arquivo OFX: "credit_card" ou "bank"
+func (p *OFXParser) GetFileType() string {
+	if p.fileType == "" {
+		return "bank" // padrão
+	}
+	return p.fileType
 }
 
 // parseCreditCardTransactions faz parse das transações de cartão de crédito

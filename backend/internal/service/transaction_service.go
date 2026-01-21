@@ -232,6 +232,8 @@ func (s *transactionService) CreateTransaction(ctx context.Context, userID uuid.
 	}
 
 	// Para income, expense e adjustment, criar transação normal
+	// IMPORTANTE: Matemática unificada - expense subtrai, income soma
+	// Para cartão de crédito, saldo negativo = dívida
 	var balanceAdjustment int64
 	if req.Type == "income" {
 		balanceAdjustment = req.Amount
@@ -241,6 +243,7 @@ func (s *transactionService) CreateTransaction(ctx context.Context, userID uuid.
 		// Transações de ajuste: aplicar o valor diretamente
 		balanceAdjustment = req.Amount
 	}
+	// A lógica matemática é agnóstica ao tipo de conta
 
 	// Criar transação
 	transaction := &model.Transaction{
@@ -369,17 +372,20 @@ func (s *transactionService) UpdateTransaction(ctx context.Context, userID uuid.
 	valueOrTypeChanged := oldTransaction.Amount != req.Amount || oldTransaction.Type != req.Type || oldTransaction.AccountID != accountID
 
 	// Calcular ajustes de saldo (será feito na transação)
+	// IMPORTANTE: Matemática unificada - reverter o efeito anterior
+	// Para cartão de crédito, saldo negativo = dívida
 	var oldBalanceAdjustment int64
 	if valueOrTypeChanged {
 		if oldTransaction.Type == "income" {
-			oldBalanceAdjustment = -oldTransaction.Amount
+			oldBalanceAdjustment = -oldTransaction.Amount // Reverter: subtrair o que foi adicionado
 		} else if oldTransaction.Type == "expense" {
-			oldBalanceAdjustment = oldTransaction.Amount
+			oldBalanceAdjustment = oldTransaction.Amount // Reverter: adicionar o que foi subtraído
 		} else if oldTransaction.Type == "adjustment" {
 			// Transações de ajuste: reverter o valor (subtrair o que foi adicionado)
 			oldBalanceAdjustment = -oldTransaction.Amount
 		}
 	}
+	// A lógica matemática é agnóstica ao tipo de conta
 
 	// Validar categoria se fornecida
 	var categoryID *uuid.UUID
@@ -455,6 +461,8 @@ func (s *transactionService) UpdateTransaction(ctx context.Context, userID uuid.
 	}
 
 	// Calcular novo ajuste de saldo
+	// IMPORTANTE: Matemática unificada - expense subtrai, income soma
+	// Para cartão de crédito, saldo negativo = dívida
 	var newBalanceAdjustment int64
 	if req.Type == "income" {
 		newBalanceAdjustment = req.Amount
@@ -464,6 +472,7 @@ func (s *transactionService) UpdateTransaction(ctx context.Context, userID uuid.
 		// Transações de ajuste: aplicar o valor diretamente
 		newBalanceAdjustment = req.Amount
 	}
+	// A lógica matemática é agnóstica ao tipo de conta
 
 	// Processar tags
 	var tags pq.StringArray

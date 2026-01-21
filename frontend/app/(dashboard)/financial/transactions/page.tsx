@@ -547,7 +547,7 @@ export default function TransactionsPage() {
         return acc
       }, 0)
 
-    // Faturas de cartão (transações em contas tipo credit)
+    // Dívida em cartões (transações em contas tipo credit)
     const creditCardDebt = accountTxs
       .filter((t) => {
         const account = accounts.find((a) => a.id === t.account_id)
@@ -739,7 +739,7 @@ export default function TransactionsPage() {
           trend={globalStats.currentBalance >= 0 ? 'up' : 'down'}
         />
         <KpiCard
-          title="Previsão Faturas"
+          title="Dívida em Cartões"
           value={globalStats.creditCardDebt}
           icon={CreditCard}
           subtext="Total de compras no crédito (Geral)"

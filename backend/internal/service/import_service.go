@@ -99,6 +99,17 @@ func (s *importService) ImportOFX(ctx context.Context, userID uuid.UUID, req *dt
 		return nil, errors.New("nenhuma transação encontrada no arquivo OFX")
 	}
 
+	// Obter tipo do arquivo OFX
+	ofxFileType := parser.GetFileType()
+
+	// Validar que o tipo da conta corresponde ao tipo do arquivo OFX
+	if ofxFileType == "credit_card" && account.Type != "credit" {
+		return nil, fmt.Errorf("arquivo OFX é de cartão de crédito, mas a conta selecionada não é do tipo 'credit'")
+	}
+	if ofxFileType == "bank" && account.Type == "credit" {
+		return nil, fmt.Errorf("arquivo OFX é de extrato bancário, mas a conta selecionada é do tipo 'credit'")
+	}
+
 	// Iniciar transação ACID
 	tx, err := s.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -110,11 +121,9 @@ func (s *importService) ImportOFX(ctx context.Context, userID uuid.UUID, req *dt
 	now := time.Now()
 	var earliestDate *time.Time // Data mais antiga do extrato
 
-	// Determinar tipo de período baseado no tipo da conta
-	periodType := "bank"
-	if account.Type == "credit" {
-		periodType = "credit_card"
-	}
+	// Determinar tipo de período baseado no tipo do arquivo OFX (não apenas da conta)
+	// O parser já retorna "credit_card" ou "bank"
+	periodType := ofxFileType
 
 	// Processar transações OFX
 	for i, ofxTxn := range ofxTransactions {
@@ -210,12 +219,15 @@ func (s *importService) ImportOFX(ctx context.Context, userID uuid.UUID, req *dt
 		}
 
 		// Atualizar saldo da conta
-		// Para despesas, subtrair; para receitas, somar
+		// IMPORTANTE: A matemática é a mesma para banco e cartão
+		// - Expense reduz saldo (ou aumenta dívida negativa no cartão)
+		// - Income aumenta saldo (ou reduz dívida negativa no cartão)
+		// Para cartão de crédito, o saldo negativo representa dívida
 		var balanceChange int64
 		if transactionType == "expense" {
-			balanceChange = -ofxTxn.Amount
+			balanceChange = -ofxTxn.Amount // Reduz saldo (ou aumenta dívida negativa)
 		} else {
-			balanceChange = ofxTxn.Amount
+			balanceChange = ofxTxn.Amount // Aumenta saldo (ou reduz dívida negativa)
 		}
 
 		queryUpdateBalance := `UPDATE accounts SET balance = balance + $1 WHERE id = $2`
@@ -446,8 +458,13 @@ func (s *importService) ImportCSV(ctx context.Context, userID uuid.UUID, req *dt
 		}
 
 		// Atualizar saldo da conta
-		queryUpdateBalance := `UPDATE accounts SET balance = balance - $1 WHERE id = $2`
-		_, err = tx.ExecContext(ctx, queryUpdateBalance, amountInCents, accountID)
+		// IMPORTANTE: Mesma lógica matemática para banco e cartão
+		// Para cartão de crédito, o saldo negativo representa dívida
+		// CSV assume expense por padrão, então subtrai do saldo
+		var balanceChange int64 = -amountInCents
+
+		queryUpdateBalance := `UPDATE accounts SET balance = balance + $1 WHERE id = $2`
+		_, err = tx.ExecContext(ctx, queryUpdateBalance, balanceChange, accountID)
 		if err != nil {
 			// Erro dentro da transação coloca a transação em estado de falha
 			// Fazer rollback e retornar erro
@@ -517,6 +534,17 @@ func (s *importService) PreviewOFX(ctx context.Context, userID uuid.UUID, req *d
 	ofxTransactions := parser.GetTransactions()
 	if len(ofxTransactions) == 0 {
 		return nil, errors.New("nenhuma transação encontrada no arquivo OFX")
+	}
+
+	// Obter tipo do arquivo OFX para validação
+	ofxFileType := parser.GetFileType()
+
+	// Validar que o tipo da conta corresponde ao tipo do arquivo OFX
+	if ofxFileType == "credit_card" && account.Type != "credit" {
+		return nil, fmt.Errorf("arquivo OFX é de cartão de crédito, mas a conta selecionada não é do tipo 'credit'")
+	}
+	if ofxFileType == "bank" && account.Type == "credit" {
+		return nil, fmt.Errorf("arquivo OFX é de extrato bancário, mas a conta selecionada é do tipo 'credit'")
 	}
 
 	var transactions []*dto.TransactionDTO

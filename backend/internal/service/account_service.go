@@ -164,6 +164,15 @@ func (s *accountService) UpdateInitialBalance(ctx context.Context, userID uuid.U
 		return nil, appError.ErrReferenceDateFuture
 	}
 
+	// CRÍTICO: Para cartão de crédito, o usuário digita um valor positivo (dívida)
+	// mas o sistema armazena como negativo. Inverter o sinal antes de processar.
+	balanceToStore := req.Balance
+	if account.Type == "credit" && balanceToStore > 0 {
+		// Usuário digitou "1500" (pensando em dívida de R$ 1500)
+		// Sistema armazena como -1500 (saldo negativo = dívida)
+		balanceToStore = -balanceToStore
+	}
+
 	// Calcular saldo de transações até a data de referência
 	// GetAccountBalanceAtDate retorna a soma de transações (income - expense) até aquela data
 	transactionsAtReferenceDate, err := s.transactionRepo.GetAccountBalanceAtDate(ctx, accountID, referenceDate)
@@ -182,7 +191,7 @@ func (s *accountService) UpdateInitialBalance(ctx context.Context, userID uuid.U
 	expectedBalanceAtDate := currentInitialBalance + transactionsAtReferenceDate
 
 	// Calcular diferença entre o saldo informado e o saldo esperado
-	difference := req.Balance - expectedBalanceAtDate
+	difference := balanceToStore - expectedBalanceAtDate
 
 	// Usar transação ACID para garantir consistência
 	tx, err := s.db.BeginTxx(ctx, nil)
@@ -227,9 +236,9 @@ func (s *accountService) UpdateInitialBalance(ctx context.Context, userID uuid.U
 		}
 	}
 
-	// Atualizar saldo inicial e data de referência
+	// Atualizar saldo inicial e data de referência (usar balanceToStore, não req.Balance)
 	updateInitialBalanceQuery := `UPDATE accounts SET initial_balance = $1, initial_balance_date = $2 WHERE id = $3`
-	_, err = tx.ExecContext(ctx, updateInitialBalanceQuery, req.Balance, referenceDate, accountID)
+	_, err = tx.ExecContext(ctx, updateInitialBalanceQuery, balanceToStore, referenceDate, accountID)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao atualizar saldo inicial: %w", err)
 	}
