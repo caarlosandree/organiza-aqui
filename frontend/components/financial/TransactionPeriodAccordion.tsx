@@ -118,6 +118,18 @@ export function TransactionPeriodAccordion({
         const creditCardTransactions: Transaction[] = []
         const allTransactions: Transaction[] = []
 
+        // Função para determinar o tipo de período de uma transação
+        const getTransactionPeriodType = (transaction: Transaction): 'bank' | 'credit_card' => {
+          // Buscar o período que contém esta transação
+          for (const period of group.periods) {
+            if (period.transactions.some((t) => t.id === transaction.id)) {
+              return period.period.period_type
+            }
+          }
+          // Fallback: se não encontrar, assumir bank
+          return 'bank'
+        }
+
         for (const period of group.periods) {
           if (period.period.period_type === 'bank') {
             bankTransactions.push(...period.transactions)
@@ -250,6 +262,7 @@ export function TransactionPeriodAccordion({
                         transactions={allTransactions}
                         onEdit={onEdit}
                         onDelete={onDelete}
+                        getPeriodType={getTransactionPeriodType}
                       />
                     )}
                     {getActiveTab(monthKey) === 'bank' && (
@@ -259,6 +272,7 @@ export function TransactionPeriodAccordion({
                             transactions={bankTransactions}
                             onEdit={onEdit}
                             onDelete={onDelete}
+                            getPeriodType={getTransactionPeriodType}
                           />
                         ) : (
                           <div className="text-center p-8 text-muted-foreground">
@@ -274,6 +288,7 @@ export function TransactionPeriodAccordion({
                             transactions={creditCardTransactions}
                             onEdit={onEdit}
                             onDelete={onDelete}
+                            getPeriodType={getTransactionPeriodType}
                           />
                         ) : (
                           <div className="text-center p-8 text-muted-foreground">

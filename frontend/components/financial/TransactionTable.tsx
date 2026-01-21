@@ -20,6 +20,7 @@ interface TransactionTableProps {
   transactions: Transaction[]
   onEdit?: (transaction: Transaction) => void
   onDelete?: (id: string) => void
+  getPeriodType?: (transaction: Transaction) => 'bank' | 'credit_card'
 }
 
 const typeLabels: Record<Transaction['type'], string> = {
@@ -34,7 +35,7 @@ const typeColors: Record<Transaction['type'], string> = {
   transfer: 'bg-accent/20 text-accent-foreground',
 }
 
-export function TransactionTable({ transactions, onEdit, onDelete }: TransactionTableProps) {
+export function TransactionTable({ transactions, onEdit, onDelete, getPeriodType }: TransactionTableProps) {
   if (transactions.length === 0) {
     return (
       <div className="text-center p-8 text-muted-foreground">
@@ -51,7 +52,8 @@ export function TransactionTable({ transactions, onEdit, onDelete }: Transaction
             <TableHead>Data</TableHead>
             <TableHead>Descrição</TableHead>
             <TableHead>Categoria</TableHead>
-            <TableHead>Tipo</TableHead>
+            <TableHead>Tipo Transação</TableHead>
+            {getPeriodType && <TableHead>Tipo</TableHead>}
             <TableHead className="text-right">Valor</TableHead>
             <TableHead className="text-right">Ações</TableHead>
           </TableRow>
@@ -82,6 +84,25 @@ export function TransactionTable({ transactions, onEdit, onDelete }: Transaction
                     {typeLabels[transaction.type]}
                   </Badge>
                 </TableCell>
+                {getPeriodType && (
+                  <TableCell>
+                    {(() => {
+                      const periodType = getPeriodType(transaction)
+                      return (
+                        <Badge
+                          variant="outline"
+                          className={
+                            periodType === 'bank'
+                              ? 'border-blue-500/20 bg-blue-500/10 text-blue-700'
+                              : 'border-orange-500/20 bg-orange-500/10 text-orange-700'
+                          }
+                        >
+                          {periodType === 'bank' ? 'Extrato' : 'Fatura'}
+                        </Badge>
+                      )
+                    })()}
+                  </TableCell>
+                )}
                 <TableCell className={`text-right font-medium ${amountColor}`}>
                   {transaction.type === 'income' ? '+' : '-'}
                   {formatCurrency(Math.abs(transaction.amount))}

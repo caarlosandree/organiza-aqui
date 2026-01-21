@@ -36,6 +36,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import {
   Collapsible,
   CollapsibleContent,
@@ -155,6 +156,7 @@ interface TransactionTableProps {
   onEdit: (transaction: Transaction) => void
   onDelete: (id: string) => void
   emptyMessage: string
+  getTransactionPeriodType: (transaction: Transaction) => 'bank' | 'credit_card'
 }
 
 const TransactionTable = ({
@@ -164,6 +166,7 @@ const TransactionTable = ({
   onEdit,
   onDelete,
   emptyMessage,
+  getTransactionPeriodType,
 }: TransactionTableProps) => {
   if (transactions.length === 0) {
     return (
@@ -192,6 +195,7 @@ const TransactionTable = ({
             <TableHead>Conta</TableHead>
             <TableHead>Descrição</TableHead>
             <TableHead>Categoria</TableHead>
+            <TableHead>Tipo</TableHead>
             <TableHead className="text-right">Valor</TableHead>
             <TableHead className="text-right">Ações</TableHead>
           </TableRow>
@@ -213,6 +217,23 @@ const TransactionTable = ({
                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-muted text-muted-foreground">
                   {getCategoryName(t.category_id || undefined)}
                 </span>
+              </TableCell>
+              <TableCell>
+                {(() => {
+                  const periodType = getTransactionPeriodType(t)
+                  return (
+                    <Badge
+                      variant="outline"
+                      className={
+                        periodType === 'bank'
+                          ? 'border-blue-500/20 bg-blue-500/10 text-blue-700'
+                          : 'border-orange-500/20 bg-orange-500/10 text-orange-700'
+                      }
+                    >
+                      {periodType === 'bank' ? 'Extrato' : 'Fatura'}
+                    </Badge>
+                  )
+                })()}
               </TableCell>
               <TableCell
                 className={`text-right font-bold whitespace-nowrap ${
@@ -513,6 +534,7 @@ const MonthAccordion = ({
                 categories={categories}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                getTransactionPeriodType={getTransactionPeriodType}
                 emptyMessage="Nenhuma transação encontrada neste filtro."
               />
             </div>
