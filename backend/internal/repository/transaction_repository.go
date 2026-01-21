@@ -77,40 +77,45 @@ func (r *transactionRepository) FindByUserID(ctx context.Context, userID uuid.UU
 
 	if filters != nil {
 		// Converter strings para UUID quando necessário
-		var accountID uuid.UUID
 		if filters.AccountID != nil {
-			var err error
-			accountID, err = uuid.Parse(*filters.AccountID)
+			accountID, err := uuid.Parse(*filters.AccountID)
 			if err != nil {
 				return nil, fmt.Errorf("account_id inválido: %w", err)
 			}
 			qb.WhereEqual("account_id", accountID)
 		}
 
-		var categoryID uuid.UUID
 		if filters.CategoryID != nil {
-			var err error
-			categoryID, err = uuid.Parse(*filters.CategoryID)
+			categoryID, err := uuid.Parse(*filters.CategoryID)
 			if err != nil {
 				return nil, fmt.Errorf("category_id inválido: %w", err)
 			}
 			qb.WhereEqual("category_id", categoryID)
 		}
 
-		var parentTransactionID uuid.UUID
 		if filters.ParentTransactionID != nil {
-			var err error
-			parentTransactionID, err = uuid.Parse(*filters.ParentTransactionID)
+			parentTransactionID, err := uuid.Parse(*filters.ParentTransactionID)
 			if err != nil {
 				return nil, fmt.Errorf("parent_transaction_id inválido: %w", err)
 			}
 			qb.WhereEqual("parent_transaction_id", parentTransactionID)
 		}
 
-		qb.WhereEqual("type", filters.Type).
-			WhereEqual("status", filters.Status).
-			WhereGreaterOrEqual("date", filters.StartDate).
-			WhereLessOrEqual("date", filters.EndDate)
+		if filters.Type != nil {
+			qb.WhereEqual("type", *filters.Type)
+		}
+
+		if filters.Status != nil {
+			qb.WhereEqual("status", *filters.Status)
+		}
+
+		if filters.StartDate != nil {
+			qb.WhereGreaterOrEqual("date", *filters.StartDate)
+		}
+
+		if filters.EndDate != nil {
+			qb.WhereLessOrEqual("date", *filters.EndDate)
+		}
 
 		if len(filters.Tags) > 0 {
 			qb.WhereArrayOverlaps("tags", filters.Tags)
@@ -159,12 +164,29 @@ func (r *transactionRepository) CountByUserID(ctx context.Context, userID uuid.U
 			qb.WhereEqual("parent_transaction_id", parentTransactionID)
 		}
 
-		qb.WhereEqual("type", filters.Type).
-			WhereEqual("status", filters.Status).
-			WhereGreaterOrEqual("date", filters.StartDate).
-			WhereLessOrEqual("date", filters.EndDate).
-			WhereGreaterOrEqual("amount", filters.MinAmount).
-			WhereLessOrEqual("amount", filters.MaxAmount)
+		if filters.Type != nil {
+			qb.WhereEqual("type", *filters.Type)
+		}
+
+		if filters.Status != nil {
+			qb.WhereEqual("status", *filters.Status)
+		}
+
+		if filters.StartDate != nil {
+			qb.WhereGreaterOrEqual("date", *filters.StartDate)
+		}
+
+		if filters.EndDate != nil {
+			qb.WhereLessOrEqual("date", *filters.EndDate)
+		}
+
+		if filters.MinAmount != nil {
+			qb.WhereGreaterOrEqual("amount", *filters.MinAmount)
+		}
+
+		if filters.MaxAmount != nil {
+			qb.WhereLessOrEqual("amount", *filters.MaxAmount)
+		}
 
 		if len(filters.Tags) > 0 {
 			qb.WhereArrayOverlaps("tags", filters.Tags)
