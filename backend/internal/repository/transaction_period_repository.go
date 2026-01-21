@@ -3,6 +3,9 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -73,11 +76,43 @@ func (r *transactionPeriodRepository) FindByUserID(ctx context.Context, userID u
 		WhereEqual("tp.user_id", userID)
 
 	if filters != nil {
-		qb.WhereEqual("tp.account_id", filters.AccountID).
-			WhereEqual("tp.period_type", filters.PeriodType).
-			WhereEqual("tp.year", filters.Year).
-			WhereEqual("tp.month", filters.Month).
-			WhereEqual("tp.status", filters.Status)
+		if filters.AccountID != nil {
+			accountID, err := uuid.Parse(*filters.AccountID)
+			if err != nil {
+				return nil, fmt.Errorf("account_id inválido: %w", err)
+			}
+			qb.WhereEqual("tp.account_id", accountID)
+		}
+
+		if filters.PeriodType != nil {
+			qb.WhereEqual("tp.period_type", *filters.PeriodType)
+		}
+
+		if filters.Year != nil {
+			qb.WhereEqual("tp.year", *filters.Year)
+		}
+
+		if filters.Month != nil {
+			qb.WhereEqual("tp.month", *filters.Month)
+		}
+
+		if filters.Status != nil {
+			qb.WhereEqual("tp.status", *filters.Status)
+		}
+
+		// Filtro por reference_month (formato YYYY-MM)
+		if filters.ReferenceMonth != nil {
+			// Parse do reference_month para year e month
+			parts := strings.Split(*filters.ReferenceMonth, "-")
+			if len(parts) == 2 {
+				if year, err := strconv.Atoi(parts[0]); err == nil {
+					qb.WhereEqual("tp.year", year)
+				}
+				if month, err := strconv.Atoi(parts[1]); err == nil {
+					qb.WhereEqual("tp.month", month)
+				}
+			}
+		}
 	}
 
 	qb.OrderBy("tp.year DESC, tp.month DESC, tp.created_at DESC")

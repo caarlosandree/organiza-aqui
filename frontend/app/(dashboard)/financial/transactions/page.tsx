@@ -58,6 +58,7 @@ import type {
   TransactionFilters,
   TransactionPeriodFilters,
   Transaction,
+  TransactionPeriod,
   Account,
   Category,
 } from '@/types/financial'
@@ -252,6 +253,8 @@ interface MonthAccordionProps {
   transactions: Transaction[]
   accounts: Account[]
   categories: Category[]
+  periodTypeMap: Map<string, 'bank' | 'credit_card'>
+  periodsData?: TransactionPeriod[]
   onEdit: (transaction: Transaction) => void
   onDelete: (id: string) => void
   isOpenDefault?: boolean
@@ -263,6 +266,8 @@ const MonthAccordion = ({
   transactions,
   accounts,
   categories,
+  periodTypeMap,
+  periodsData,
   onEdit,
   onDelete,
   isOpenDefault = false,
@@ -278,12 +283,60 @@ const MonthAccordion = ({
     return accounts.filter((acc) => accountIds.has(acc.id))
   }, [transactions, accounts, showAccountTags])
 
+  // Função auxiliar para determinar o tipo de período de uma transação
+  // Usa useMemo para garantir que a lógica seja consistente
+  const getTransactionPeriodType = useMemo(() => {
+    return (transaction: Transaction): 'bank' | 'credit_card' => {
+      // Prioridade 1: Se a transação tem period_id, usar o period_type do período
+      if (transaction.period_id) {
+        const periodType = periodTypeMap.get(transaction.period_id)
+        if (periodType) {
+          return periodType
+        }
+        // Se period_id existe mas não está no mapa, tentar encontrar pelo reference_month
+        if (transaction.reference_month && periodsData) {
+          const [year, month] = transaction.reference_month.split('-')
+          const matchingPeriod = periodsData.find(
+            (p) =>
+              p.account_id === transaction.account_id &&
+              p.year === parseInt(year) &&
+              p.month === parseInt(month)
+          )
+          if (matchingPeriod) {
+            return matchingPeriod.period_type
+          }
+        }
+      }
+      
+      // Prioridade 2: Tentar encontrar período pelo reference_month e account_id
+      if (transaction.reference_month && periodsData) {
+        const [year, month] = transaction.reference_month.split('-')
+        const matchingPeriod = periodsData.find(
+          (p) =>
+            p.account_id === transaction.account_id &&
+            p.year === parseInt(year) &&
+            p.month === parseInt(month)
+        )
+        if (matchingPeriod) {
+          return matchingPeriod.period_type
+        }
+      }
+      
+      // Prioridade 3: Fallback - usar o tipo da conta (compatibilidade com transações antigas)
+      const account = accounts.find((a) => a.id === transaction.account_id)
+      if (account?.type === 'credit') {
+        return 'credit_card'
+      }
+      return 'bank'
+    }
+  }, [periodTypeMap, accounts, periodsData])
+
   const stats = useMemo(() => {
     const bankTx = transactions.filter(
-      (t) => accounts.find((a) => a.id === t.account_id)?.type !== 'credit'
+      (t) => getTransactionPeriodType(t) === 'bank'
     )
     const cardTx = transactions.filter(
-      (t) => accounts.find((a) => a.id === t.account_id)?.type === 'credit'
+      (t) => getTransactionPeriodType(t) === 'credit_card'
     )
 
     const bankIncome = bankTx.filter((t) => t.type === 'income').reduce((acc, t) => acc + t.amount, 0)
@@ -291,23 +344,23 @@ const MonthAccordion = ({
     const cardBill = cardTx.reduce((acc, t) => acc + t.amount, 0)
 
     return { bankIncome, bankExpense, cardBill, balance: bankIncome - bankExpense }
-  }, [transactions, accounts])
+  }, [transactions, getTransactionPeriodType])
 
   const filteredList = useMemo(() => {
     let filtered = transactions
     if (activeTab === 'bank') {
       filtered = transactions.filter(
-        (t) => accounts.find((a) => a.id === t.account_id)?.type !== 'credit'
+        (t) => getTransactionPeriodType(t) === 'bank'
       )
     } else if (activeTab === 'card') {
       filtered = transactions.filter(
-        (t) => accounts.find((a) => a.id === t.account_id)?.type === 'credit'
+        (t) => getTransactionPeriodType(t) === 'credit_card'
       )
     }
     return filtered.sort(
       (a, b) => parseLocalDate(b.date).getTime() - parseLocalDate(a.date).getTime()
     )
-  }, [transactions, activeTab, accounts])
+  }, [transactions, activeTab, getTransactionPeriodType])
 
   const getMonthName = (monthKey: string) => {
     if (!monthKey) return ''
@@ -493,12 +546,24 @@ export default function TransactionsPage() {
 
   const { data: transactionsData, isLoading: isLoadingTransactions } =
     useTransactions(transactionFilters)
-  const { isLoading: isLoadingPeriods } = useTransactionPeriods(periodFilters)
+  const { data: periodsData, isLoading: isLoadingPeriods } = useTransactionPeriods(periodFilters)
 
   // Mutations
   const createMutation = useCreateTransaction()
   const updateMutation = useUpdateTransaction()
   const deleteMutation = useDeleteTransaction()
+
+  // Criar mapa de period_id -> period_type para classificação correta das transações
+  const periodTypeMap = useMemo(() => {
+    if (!periodsData) return new Map<string, 'bank' | 'credit_card'>()
+    
+    const map = new Map<string, 'bank' | 'credit_card'>()
+    periodsData.forEach((period) => {
+      map.set(period.id, period.period_type)
+    })
+    
+    return map
+  }, [periodsData])
 
   // Agrupar transações por mês de referência
   const groupedTransactions = useMemo(() => {
@@ -770,6 +835,8 @@ export default function TransactionsPage() {
               transactions={group.transactions}
               accounts={accounts}
               categories={categories}
+              periodTypeMap={periodTypeMap}
+              periodsData={periodsData}
               onEdit={handleEdit}
               onDelete={handleDelete}
               isOpenDefault={index === 0 || filters.reference_month !== null}
